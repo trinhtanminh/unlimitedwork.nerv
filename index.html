@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unlimited Work</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/customParseFormat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body oncontextmenu="return false;">
+    <!-- Background Orbs -->
+    <div id="orb1" class="gradient-orb"></div>
+    <div id="orb2" class="gradient-orb"></div>
+    <div id="orb3" class="gradient-orb"></div>
+
+    <!-- Initial Loading Screen -->
+    <div id="loading-screen" class="fixed inset-0 bg-white flex items-center justify-center z-[100]">
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin text-4xl text-gray-400"></i>
+            <p class="mt-4 text-lg text-gray-700">Đang tải ứng dụng...</p>
+        </div>
+    </div>
+    
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="flex items-center justify-center min-h-screen hidden p-4">
+        <div class="glass-pane p-8 sm:p-10 w-full max-w-md">
+            <h2 id="auth-title" class="text-3xl font-bold text-center text-gray-900 mb-8">Đăng Nhập</h2>
+            <div id="auth-error" class="hidden bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-sm"></div>
+            <form id="auth-form" class="space-y-6">
+                <div id="name-field-container" class="hidden">
+                    <label for="name" class="text-sm-label">Tên của bạn</label>
+                    <input id="name" type="text" class="glass-input" placeholder="Nguyễn Văn A">
+                </div>
+                <div>
+                    <label for="email" class="text-sm-label">Email</label>
+                    <input id="email" type="email" class="glass-input" required placeholder="email@example.com">
+                </div>
+                <div>
+                    <label for="password" class="text-sm-label">Mật khẩu</label>
+                    <input id="password" type="password" class="glass-input" required placeholder="••••••••">
+                </div>
+                <button type="submit" id="auth-submit-btn" class="w-full glass-btn primary !py-3 !text-base">Đăng Nhập</button>
+            </form>
+            <p class="text-center text-sm text-gray-600 mt-8">
+                <span id="auth-toggle-text">Chưa có tài khoản?</span>
+                <a href="#" id="auth-toggle-link" class="font-semibold text-[var(--brand-primary)] hover:underline">Đăng ký ngay</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Main App (User View) -->
+    <div id="app-screen" class="hidden flex flex-col h-screen">
+        <header class="sticky top-0 z-40 p-3 flex-shrink-0">
+             <div class="glass-pane !rounded-full p-2">
+                 <div class="container mx-auto px-4">
+                     <div class="flex justify-between items-center">
+                         <div class="flex items-center gap-2 sm:gap-4">
+                             <button id="back-to-dashboard-btn" class="hidden glass-btn icon-btn">
+                                 <i class="fas fa-arrow-left"></i>
+                             </button>
+                             <h1 id="header-title" class="text-lg sm:text-xl font-bold text-gray-900 truncate">Các Nhóm Của Tôi</h1>
+                         </div>
+                         <div class="flex items-center gap-2">
+                            <!-- Desktop Buttons -->
+                            <div id="desktop-header-buttons" class="items-center gap-2">
+                                <button id="create-group-btn" class="glass-btn primary icon-btn"><i class="fas fa-users"></i></button>
+                                <button id="join-group-btn" class="glass-btn icon-btn bg-green-100"><i class="fas fa-sign-in-alt"></i></button>
+                                <button id="profile-btn" class="glass-btn icon-btn !p-0 overflow-hidden">
+                                    <img id="user-avatar" src="" alt="Avatar" class="w-full h-full object-cover">
+                                </button>
+                                <button id="friends-btn" class="glass-btn icon-btn"><i class="fas fa-user-friends"></i></button>
+                                <button id="open-chat-btn" class="glass-btn icon-btn"><i class="fas fa-comments"></i></button>
+                                <button id="logout-btn" class="glass-btn icon-btn"><i class="fas fa-sign-out-alt"></i></button>
+                            </div>
+                            <!-- Mobile Menu Button -->
+                            <div id="mobile-header-buttons" class="relative">
+                                <button id="mobile-menu-btn" class="glass-btn icon-btn">
+                                    <i class="fas fa-ellipsis-h"></i>
+                                </button>
+                                <div id="mobile-menu" class="hidden absolute right-0 mt-2 w-56 glass-pane !rounded-2xl p-2 space-y-1 z-50">
+                                    <!-- Mobile menu items will be populated by JS -->
+                                </div>
+                            </div>
+                         </div>
+                     </div>
+                 </div>
+             </div>
+        </header>
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Sidebar -->
+            <aside id="sidebar" class="w-64 bg-white/30 backdrop-blur-lg p-4 flex-shrink-0 overflow-y-auto custom-scrollbar hidden sm:block transition-all duration-300">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-lg font-bold text-gray-900 sidebar-title">Unlimited Work</h2>
+                    <button id="toggle-sidebar-btn" class="glass-btn icon-btn !w-8 !h-8">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                </div>
+                <nav id="sidebar-nav" class="space-y-4">
+                    <!-- "Quản lý nhóm" category -->
+                    <div>
+                        <button id="toggle-group-category-btn" class="w-full flex justify-between items-center py-2 px-3 rounded-lg text-left text-sm font-semibold text-gray-700 hover:bg-gray-200/50 transition-colors" aria-expanded="true">
+                            <span class="flex items-center gap-3"><i class="fas fa-layer-group"></i> <span class="sidebar-text">Quản lý nhóm</span></span>
+                            <i class="fas fa-chevron-down text-xs transition-transform sidebar-chevron"></i>
+                        </button>
+                        <div id="group-list-container" class="pl-4 mt-2 space-y-1 sidebar-submenu">
+                            <!-- Groups and plans will be populated by JS -->
+                        </div>
+                    </div>
+                    <!-- "Công cụ" category -->
+                    <div>
+                        <button id="toggle-tool-category-btn" class="w-full flex justify-between items-center py-2 px-3 rounded-lg text-left text-sm font-semibold text-gray-700 hover:bg-gray-200/50 transition-colors" aria-expanded="true">
+                            <span class="flex items-center gap-3"><i class="fas fa-toolbox"></i> <span class="sidebar-text">Công Cụ</span></span>
+                            <i class="fas fa-chevron-down text-xs transition-transform sidebar-chevron"></i>
+                        </button>
+                        <div id="tool-list-container" class="pl-4 mt-2 space-y-1 sidebar-submenu">
+                            <a href="#" id="sidebar-ai-tools-btn" class="block py-1 px-3 rounded-md text-sm text-gray-600 hover:bg-gray-200/50 sidebar-text">Công Cụ AI</a>
+                            <a href="#" class="block py-1 px-3 rounded-md text-sm text-gray-600 hover:bg-gray-200/50 sidebar-text">Công Cụ YouTube</a>
+                            <a href="#" id="facebook-tools-btn" class="block py-1 px-3 rounded-md text-sm text-gray-600 hover:bg-gray-200/50 sidebar-text">Công Cụ Facebook</a>
+                        </div>
+                    </div>
+                </nav>
+            </aside>
+
+            <!-- Main Content Wrapper -->
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <!-- Taskbar -->
+                <div id="taskbar" class="container mx-auto px-4 mt-4 hidden flex-shrink-0">
+                    <div class="glass-pane !rounded-full p-2">
+                        <div class="flex justify-between items-center gap-2">
+                            <div id="group-id-display" class="hidden items-center gap-2 pl-2">
+                                <span class="text-sm font-medium text-gray-600">ID Nhóm:</span>
+                                <span id="group-id-text" class="text-sm font-bold text-gray-800"></span>
+                                <button id="copy-group-id-btn" class="glass-btn !w-8 !h-8 !text-xs"><i class="far fa-copy"></i></button>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button id="create-plan-btn" class="hidden glass-btn primary icon-btn"><i class="fas fa-calendar-plus"></i></button>
+                                <button id="statistics-btn" class="hidden glass-btn icon-btn"><i class="fas fa-chart-line"></i></button>
+                                <button id="create-task-btn" class="hidden glass-btn primary icon-btn"><i class="fas fa-tasks"></i></button>
+                                <button id="share-plan-btn" class="hidden glass-btn icon-btn bg-teal-100"><i class="fas fa-share-alt"></i></button>
+                                <button id="filter-btn" class="hidden glass-btn icon-btn"><i class="fas fa-filter"></i></button>
+                                <button id="leave-group-btn" class="hidden glass-btn icon-btn bg-red-100"><i class="fas fa-door-open"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex-grow overflow-y-auto custom-scrollbar p-4">
+                    <div class="container mx-auto h-full">
+                        <main id="main-content-container" class="h-full">
+                            <div id="stats-container" class="grid grid-cols-6 md:grid-cols-6 gap-4 mb-6 hidden">
+                                <!-- Stats will be populated by JS -->
+                            </div>
+                            <div id="main-content" class="h-full"></div>
+                            <!-- Tools Content -->
+                            <main id="tools-content" class="hidden h-full bg-white rounded-2xl p-6">
+                                <div class="text-left mb-6">
+                                    <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900">Danh mục Công Cụ</h1>
+                                    <p class="mt-2 text-base text-gray-500">Khám phá các công cụ mạnh mẽ để tăng năng suất của bạn.</p>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <!-- AI Tool Card -->
+                                    <div class="glass-pane p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105">
+                                        <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4">
+                                            <i class="fas fa-robot text-3xl text-blue-500"></i>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-800 mb-2">Công Cụ AI</h3>
+                                        <p class="text-sm text-gray-600 mb-4 flex-grow">Các công cụ hỗ trợ bởi trí tuệ nhân tạo để tự động hóa và sáng tạo.</p>
+                                        <button id="navigate-to-ai-tools-btn" class="glass-btn primary mt-auto w-full">Khám phá</button>
+                                    </div>
+                                    <!-- YouTube Tool Card -->
+                                    <div class="glass-pane p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105">
+                                        <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                                            <i class="fab fa-youtube text-3xl text-red-500"></i>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-800 mb-2">Công Cụ YouTube</h3>
+                                        <p class="text-sm text-gray-600 mb-4 flex-grow">Tối ưu hóa và quản lý kênh YouTube của bạn một cách hiệu quả.</p>
+                                        <button class="glass-btn primary mt-auto w-full">Khám phá</button>
+                                    </div>
+                                    <!-- Facebook Tool Card -->
+                                    <div class="glass-pane p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105">
+                                        <div class="w-16 h-16 rounded-full bg-sky-100 flex items-center justify-center mb-4">
+                                            <i class="fab fa-facebook text-3xl text-sky-600"></i>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-800 mb-2">Công Cụ Facebook</h3>
+                                        <p class="text-sm text-gray-600 mb-4 flex-grow">Quản lý và phân tích các hoạt động trên Facebook, bao gồm cả báo cáo MCV.</p>
+                                        <button id="navigate-to-facebook-tools-btn" class="glass-btn primary mt-auto w-full">Truy cập</button>
+                                    </div>
+                                </div>
+                            </main>
+                            <!-- AI Tools Content -->
+                            <main id="ai-tools-content" class="hidden h-full bg-white rounded-2xl p-6">
+                                <div class="text-left mb-6">
+                                    <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900">Công Cụ AI</h1>
+                                    <p class="mt-2 text-base text-gray-500">Nâng cao hiệu suất công việc với các trợ lý AI thông minh.</p>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <!-- AI Tool 1 Card -->
+                                    <div class="glass-pane p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105">
+                                        <div class="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mb-4">
+                                            <i class="fas fa-magic text-3xl text-purple-500"></i>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-800 mb-2">Trợ lý Viết Content</h3>
+                                        <p class="text-sm text-gray-600 mb-4 flex-grow">Tự động tạo nội dung, bài viết, và ý tưởng sáng tạo.</p>
+                                        <button id="content-writer-btn" class="glass-btn primary mt-auto w-full">Sử dụng</button>
+                                    </div>
+                                    <!-- AI Tool 2 Card -->
+                                    <div class="glass-pane p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105">
+                                        <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                                            <i class="fas fa-image text-3xl text-green-500"></i>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-800 mb-2">Tạo Hình Ảnh</h3>
+                                        <p class="text-sm text-gray-600 mb-4 flex-grow">Biến văn bản thành hình ảnh độc đáo và chất lượng cao.</p>
+                                        <button class="glass-btn primary mt-auto w-full">Sử dụng</button>
+                                    </div>
+                                    <!-- AI Tool 3 Card -->
+                                    <div class="glass-pane p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105">
+                                        <div class="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center mb-4">
+                                            <i class="fas fa-file-audio text-3xl text-orange-500"></i>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-800 mb-2">Chuyển đổi Giọng nói</h3>
+                                        <p class="text-sm text-gray-600 mb-4 flex-grow">Chuyển đổi văn bản thành giọng nói tự nhiên và ngược lại.</p>
+                                        <button class="glass-btn primary mt-auto w-full">Sử dụng</button>
+                                    </div>
+                                </div>
+                            </main>
+                            <!-- Content Writer Assistant -->
+                            <main id="content-writer-assistant-content" class="hidden h-full bg-gray-100 text-gray-800">
+                                <div id="app" class="flex flex-col h-full bg-white overflow-hidden rounded-2xl">
+        
+                                    <!-- Header với hiệu ứng kính mờ -->
+                                    <header class="bg-white/80 backdrop-blur-xl border-b border-gray-200 p-4 shadow-sm sticky top-0 z-20 flex justify-between items-center">
+                                        <div class="flex items-center space-x-3">
+                                             <button id="new-chat-btn" title="Trò chuyện mới" class="p-2 rounded-full hover:bg-gray-200 transition-colors">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                            </button>
+                                            <h1 class="text-xl md:text-2xl font-bold text-gray-900">Chatbot</h1>
+                                        </div>
+                                        
+                                        <div class="flex items-center space-x-3">
+                                            <!-- Model Selector -->
+                                            <div class="w-auto md:w-56">
+                                                <select id="model-selector" class="custom-select w-full bg-gray-100/80 border border-gray-200/90 text-gray-800 text-sm rounded-xl focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 focus:border-transparent block p-2.5 transition">
+                                                    <optgroup label="NVIDIA"><option value="nvidia/llama-3.1-nemotron-ultra-253b-v1:free">Nemotron Ultra 253B</option></optgroup>
+                                                    <optgroup label="Google"><option value="google/gemini-2.5-pro" data-vision="true">Gemini 2.5 Pro (Vision)</option><option value="google/gemini-2.5-flash" data-vision="true" selected>Gemini 2.5 Flash (Vision)</option><option value="google/gemini-1.5-flash-latest" data-vision="true">Gemini 1.5 Flash (Vision)</option><option value="google/gemma-3-27b-it:free">Gemma 3 27B</option><option value="google/gemma-2-27b-it:free">Gemma 2 27B</option><option value="google/gemma-2-9b-it:free" data-vision="true">Gemma 2 9B (Vision)</option></optgroup>
+                                                    <optgroup label="Anthropic"><option value="anthropic/claude-3-haiku-20240307" data-vision="true">Claude 3 Haiku (Vision)</option></optgroup>
+                                                    <optgroup label="Meta"><option value="meta-llama/llama-3-8b-instruct:free">Llama 3 8B</option></optgroup>
+                                                    <optgroup label="Shisa AI"><option value="shisa-ai/shisa-v2-llama3.3-70b:free">Shisa V2 Llama 3.3 70B</option></optgroup>
+                                                    <optgroup label="Qwen"><option value="qwen/qwen3-235b-a22b-2507:free">Qwen3 235B A22B Instruct</option></optgroup>
+                                                    <optgroup label="MistralAI"><option value="mistralai/mixtral-8x7b-instruct:free">Mixtral 8x7B</option><option value="mistralai/mistral-7b-instruct:free">Mistral 7B</option></optgroup>
+                                                    <optgroup label="Microsoft"><option value="microsoft/phi-3-mini-128k-instruct:free">Phi-3 Mini 128k</option></optgroup>
+                                                    <optgroup label="Deepseek"><option value="deepseek/deepseek-r1:free">R1 (Miễn phí)</option><option value="deepseek/deepseek-r1-0528-qwen3-8b:free">R1 0528 Qwen3 8B (Miễn phí)</option><option value="deepseek/deepseek-r1-distill-qwen-14b:free">R1 Distill Qwen 14B (Miễn phí)</option><option value="deepseek/deepseek-chat">Chat (Có thể tính phí)</option><option value="deepseek/deepseek-coder">Coder (Có thể tính phí)</option></optgroup>
+                                                    <optgroup label="Community Models (Miễn phí)"><option value="nousresearch/nous-hermes-2-mixtral-8x7b-dpo:free">Nous Hermes 2 Mixtral DPO</option><option value="nousresearch/nous-hermes-2-mixtral-8x7b-sft:free">Nous Hermes 2 Mixtral SFT</option><option value="cognitivecomputations/dolphin-mixtral-8x7b:free">Dolphin Mixtral</option><option value="gryphe/mythomax-l2-13b:free">MythoMax L2 13B</option><option value="openchat/openchat-7b:free">OpenChat 7B</option><option value="teknium/openhermes-2.5-mistral-7b:free">OpenHermes 2.5</option><option value="huggingfaceh4/zephyr-7b-beta:free">Zephyr 7B Beta</option><option value="openrouter/cinematika-7b:free">Cinematika 7B</option></optgroup>
+                                                </select>
+                                            </div>
+                                            <!-- Nút Lịch sử -->
+                                            <div class="relative">
+                                                <button id="history-btn" title="Lịch sử trò chuyện" class="p-2 rounded-full hover:bg-gray-200 transition-colors">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                                                </button>
+                                                <div id="history-popup" class="hidden absolute right-0 mt-2 w-80 bg-white/90 backdrop-blur-xl border border-gray-200 rounded-lg shadow-xl z-30">
+                                                    <div class="p-3 border-b font-semibold text-center">Lịch sử</div>
+                                                    <ul id="history-list" class="custom-scrollbar max-h-96 overflow-y-auto p-2">
+                                                        <!-- Lịch sử sẽ được điền vào đây -->
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </header>
+                            
+                                    <!-- Vùng chứa tin nhắn -->
+                                    <main id="chat-messages" class="chat-messages custom-scrollbar flex-1 p-4 md:p-6 space-y-4 overflow-y-auto">
+                                        <!-- Tin nhắn sẽ được thêm vào bằng JavaScript -->
+                                    </main>
+                            
+                                    <!-- Form nhập liệu với hiệu ứng kính mờ -->
+                                    <footer class="p-4 md:p-6 bg-white/80 backdrop-blur-xl sticky bottom-0 border-t border-gray-200 z-10">
+                                        <!-- Vùng xem trước ảnh -->
+                                        <div id="image-preview-container" class="hidden mb-3 relative w-24 h-24">
+                                            <img id="image-preview" class="w-full h-full object-cover rounded-xl border-2 border-white shadow-lg">
+                                            <button id="remove-image-btn" class="absolute -top-2 -right-2 bg-gray-600 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-md hover:bg-red-500 transition-all">&times;</button>
+                                        </div>
+                            
+                                        <form id="chat-form" class="flex items-center space-x-3">
+                                            <!-- Nút đính kèm file -->
+                                            <label for="file-input" id="attach-file-label" class="cursor-pointer p-3 text-gray-500 hover:text-blue-500 hover:bg-gray-200 rounded-full transition-colors">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                                            </label>
+                                            <input type="file" id="file-input" accept="image/*" class="hidden">
+                            
+                                            <input 
+                                                id="message-input" 
+                                                type="text" 
+                                                placeholder="Nhập câu hỏi..." 
+                                                autocomplete="off"
+                                                class="flex-1 w-full px-5 py-3 bg-gray-100 border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-300"
+                                            >
+                                            <button 
+                                                type="submit" 
+                                                id="send-button"
+                                                class="bg-blue-500 hover:bg-blue-600 text-white font-bold p-3 rounded-full transition duration-300 flex items-center justify-center shadow-lg shadow-blue-500/30"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                                            </button>
+                                        </form>
+                                    </footer>
+                                </div>
+                            </main>
+                            <!-- Facebook Tools Content -->
+                            <main id="facebook-tools-content" class="hidden h-full bg-white rounded-2xl p-6">
+                                <!-- Tools will be populated here -->
+                            </main>
+
+                            <!-- Facebook MCV Report Content -->
+                            <main id="facebook-mcv-report-content" class="hidden h-full report-background">
+                                <div class="flex flex-col h-full">
+                                    <!-- Header -->
+                                    <div class="flex justify-between items-center mb-6 flex-shrink-0">
+                                        <div class="text-left">
+                                            <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900">Báo cáo Facebook MCV</h1>
+                                            <p class="mt-2 text-base text-gray-500">Tự động tạo báo cáo tổng hợp nhanh chóng và hiệu quả.</p>
+                                        </div>
+                                        <button id="create-report-btn" class="glass-btn primary !py-2 !px-4 !rounded-full">
+                                            <i class="fas fa-plus mr-2"></i>
+                                            Tạo báo cáo
+                                        </button>
+                                    </div>
+                            
+                                    <!-- Main Layout: Results Only -->
+                                    <div class="flex-grow overflow-hidden">
+                                        <!-- Placeholder for when no report is generated -->
+                                        <div id="no-report-placeholder" class="h-full flex flex-col items-center justify-center text-center text-gray-500">
+                                            <i class="fas fa-file-alt text-6xl mb-4"></i>
+                                            <h3 class="text-xl font-semibold text-gray-700">Chưa có báo cáo nào</h3>
+                                            <p class="mt-2">Bạn hãy nhấn nút "Tạo báo cáo" để bắt đầu.</p>
+                                        </div>
+                                        <!-- Results Container -->
+                                        <div id="all-reports-container" class="h-full flex-col gap-6 overflow-y-auto custom-scrollbar pr-2 hidden">
+                                            <!-- Result Table -->
+                                            <div id="result-container" class="glass-pane p-5">
+                                                <div class="flex justify-between items-center mb-4">
+                                                    <h2 id="report-title" class="text-lg font-bold text-gray-900">BÁO CÁO SỐ WEEKLY TUẦN</h2>
+                                                    <button id="export-weekly-report-btn" title="Tải file Excel" class="glass-btn icon-btn">
+                                                        <i class="fas fa-download"></i>
+                                                    </button>
+                                                 </div>
+                                                 <div class="overflow-x-auto custom-scrollbar">
+                                                    <table id="result-table" class="min-w-full text-sm whitespace-nowrap">
+                                                        <!-- JS generated content -->
+                                                    </table>
+                                                 </div>
+                                            </div>
+                                            
+                                            <!-- Summary Table -->
+                                            <div id="summary-table-container" class="glass-pane p-5">
+                                                 <div class="flex justify-between items-center mb-4">
+                                                    <h2 class="text-lg font-bold text-gray-900">BÁO CÁO TỔNG KẾT</h2>
+                                                    <button id="export-summary-button" title="Tải file Excel" class="glass-btn icon-btn">
+                                                        <i class="fas fa-download"></i>
+                                                    </button>
+                                                 </div>
+                                                 <div class="overflow-x-auto custom-scrollbar">
+                                                    <table id="summary-table" class="min-w-full text-sm whitespace-nowrap">
+                                                        <!-- JS generated content -->
+                                                    </table>
+                                                 </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </main>
+                        </main>
+
+                        <!-- Statistics Content -->
+                        <main id="statistics-content" class="hidden h-full">
+                            <div class="glass-pane p-6 h-full flex flex-col">
+                                <div class="flex justify-between items-center mb-6 flex-shrink-0">
+                                    <h2 class="text-2xl font-bold text-gray-800">Thống kê công việc</h2>
+                                    <button id="export-excel-btn" class="glass-btn primary">
+                                        <i class="fas fa-file-excel mr-2"></i>
+                                        Xuất Excel
+                                    </button>
+                                </div>
+                                
+                                <!-- Filters -->
+                                <div id="statistics-filters" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 flex-shrink-0">
+                                    <div>
+                                        <label for="stat-filter-assignee" class="text-sm-label">Lọc theo thành viên</label>
+                                        <div class="custom-select-wrapper">
+                                            <select id="stat-filter-assignee" class="original-select"></select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="stat-filter-date" class="text-sm-label">Lọc theo ngày</label>
+                                        <input type="date" id="stat-filter-date" class="glass-input">
+                                    </div>
+                                    <div>
+                                        <label for="stat-filter-partner" class="text-sm-label">Lọc theo đối tác</label>
+                                        <input type="text" id="stat-filter-partner" class="glass-input" placeholder="Nhập tên đối tác...">
+                                    </div>
+                                    <div>
+                                        <label for="stat-filter-channel" class="text-sm-label">Lọc theo kênh</label>
+                                        <div class="custom-select-wrapper">
+                                            <select id="stat-filter-channel" class="original-select"></select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="stat-filter-time" class="text-sm-label">Lọc theo giờ</label>
+                                        <input type="time" id="stat-filter-time" class="glass-input">
+                                    </div>
+                                </div>
+
+                                <!-- Statistics Table -->
+                                <div class="overflow-y-auto custom-scrollbar flex-grow">
+                                    <table class="w-full text-sm text-left text-gray-600 min-w-[1000px]">
+                                        <thead class="text-xs text-gray-700 uppercase sticky top-0 bg-white/60 backdrop-blur-sm">
+                                            <tr>
+                                                <th scope="col" class="px-6 py-3">STT</th>
+                                                <th scope="col" class="px-6 py-3">Đối tác</th>
+                                                <th scope="col" class="px-6 py-3">Link video</th>
+                                                <th scope="col" class="px-6 py-3">Link kịch bản</th>
+                                                <th scope="col" class="px-6 py-3">Link video hoàn thành</th>
+                                                <th scope="col" class="px-6 py-3">Người thực hiện</th>
+                                                <th scope="col" class="px-6 py-3">Ngày kết thúc</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="statistics-table-body">
+                                            <!-- Data will be populated by JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </main>
+
+                        <!-- Profile Content (within App Screen) -->
+                        <main id="profile-content" class="hidden h-full">
+                            <div class="max-w-md mx-auto">
+                                <div class="glass-pane p-6">
+                                    <form id="profile-form" class="space-y-4">
+                                        <div class="flex justify-center">
+                                            <div id="profile-avatar-container" class="relative w-32 h-32 cursor-pointer group">
+                                                <img id="profile-avatar-large" src="" alt="Avatar" class="w-full h-full object-cover rounded-full border-4 border-white shadow-lg">
+                                                <div class="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <i class="fas fa-camera text-white text-2xl"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label for="profile-name" class="text-sm-label">Tên</label>
+                                            <input type="text" id="profile-name" class="glass-input" required>
+                                        </div>
+                                        <div>
+                                            <label for="profile-email" class="text-sm-label">Email</label>
+                                            <input type="email" id="profile-email" class="glass-input" disabled>
+                                        </div>
+                                        <div class="pt-2">
+                                            <p class="text-sm font-semibold text-gray-700">Đổi mật khẩu</p>
+                                            <p class="text-xs text-gray-500 mb-2">Để trống nếu không muốn thay đổi.</p>
+                                            <div class="space-y-4">
+                                                 <div>
+                                                    <label for="profile-new-password" class="text-sm-label">Mật khẩu mới</label>
+                                                    <input type="password" id="profile-new-password" class="glass-input">
+                                                </div>
+                                                 <div>
+                                                    <label for="profile-confirm-password" class="text-sm-label">Xác nhận mật khẩu mới</label>
+                                                    <input type="password" id="profile-confirm-password" class="glass-input">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div id="profile-error" class="hidden bg-red-100 text-red-700 p-3 rounded-lg text-sm"></div>
+                                        <div class="flex justify-end gap-3 pt-4">
+                                            <button type="submit" class="glass-btn primary !px-6">Lưu thay đổi</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </main>
+                    </div>
+                </div>
+            </div> <!-- Close Main Content Wrapper -->
+        </div>
+    </div>
+
+    <!-- Public View Screen -->
+    <div id="public-view-screen" class="hidden flex flex-col h-screen">
+        <header class="sticky top-0 z-40 p-3">
+            <div class="glass-pane !rounded-full p-2">
+                <div class="container mx-auto px-4 flex justify-between items-center">
+                    <h1 id="public-header-title" class="text-lg sm:text-xl font-bold text-gray-900 truncate">Lịch Công Việc</h1>
+                    <span class="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">Chế độ xem công khai</span>
+                </div>
+            </div>
+        </header>
+        <main id="public-main-content-container" class="container mx-auto p-4 flex-grow overflow-y-auto custom-scrollbar">
+            <div id="public-stats-container" class="grid grid-cols-6 md:grid-cols-6 gap-4 mb-6"></div>
+            <div id="public-main-content"></div>
+        </main>
+    </div>
+
+    <!-- Admin Screen -->
+    <div id="admin-screen" class="hidden flex flex-col h-screen">
+       <header class="sticky top-0 z-40 p-3">
+            <div class="glass-pane !rounded-full p-2">
+                <div class="container mx-auto px-4 flex justify-between items-center">
+                    <h1 class="text-xl md:text-2xl font-bold text-gray-900">Trang Quản Trị</h1>
+                    <div class="flex items-center gap-3">
+                        <button id="admin-logout-btn" class="glass-btn danger icon-btn sm:!w-auto sm:!px-4">
+                            <i class="fas fa-sign-out-alt sm:mr-2"></i><span class="hidden sm:inline">Đăng xuất</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+       </header>
+        <main class="container mx-auto p-4 flex-grow overflow-y-auto custom-scrollbar">
+            <div id="admin-stats-container" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"></div>
+            <div class="glass-pane p-4 sm:p-6 mb-8"><div class="h-80"><canvas id="user-growth-chart"></canvas></div></div>
+            <div class="glass-pane p-4 sm:p-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+                    <h2 class="text-xl font-bold text-gray-800">Quản Lý Người Dùng</h2>
+                    <button id="add-user-btn" class="glass-btn primary icon-btn"><i class="fas fa-user-plus"></i></button>
+                </div>
+                <div class="overflow-x-auto custom-scrollbar"><table class="w-full text-sm text-left text-gray-600 min-w-[800px]"><thead class="text-xs text-gray-700 uppercase"><tr><th scope="col" class="px-6 py-3">Tên</th><th scope="col" class="px-6 py-3">Email</th><th scope="col" class="px-6 py-3">Ngày tham gia</th><th scope="col" class="px-6 py-3">Vai trò</th><th scope="col" class="px-6 py-3">Trạng thái</th><th scope="col" class="px-6 py-3">Hành động</th></tr></thead><tbody id="users-table-body"></tbody></table></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Custom Date Picker Popup -->
+    <div id="custom-date-picker" class="hidden absolute z-[100] glass-pane !p-4 !rounded-2xl w-72">
+        <div class="flex items-center justify-between mb-3">
+            <button id="date-picker-prev-month" class="glass-btn icon-btn !w-8 !h-8"><i class="fas fa-chevron-left"></i></button>
+            <div id="date-picker-month-year" class="font-semibold text-center text-gray-800"></div>
+            <button id="date-picker-next-month" class="glass-btn icon-btn !w-8 !h-8"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
+            <div>CN</div>
+            <div>T2</div>
+            <div>T3</div>
+            <div>T4</div>
+            <div>T5</div>
+            <div>T6</div>
+            <div>T7</div>
+        </div>
+        <div id="date-picker-grid" class="grid grid-cols-7 gap-1">
+            <!-- Day cells will be populated by JS -->
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="user-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6 w-full max-w-md">
+            <h3 id="user-modal-title" class="text-xl font-bold text-gray-800 mb-6"></h3>
+            <form id="user-form" class="space-y-4">
+                <input type="hidden" id="user-id">
+                <div><label for="user-name" class="text-sm-label">Tên người dùng</label><input type="text" id="user-name" class="glass-input" required></div>
+                <div><label for="user-email-input" class="text-sm-label">Email</label><input type="email" id="user-email-input" class="glass-input" required></div>
+                <div id="password-field-container"><label for="user-password" class="text-sm-label">Mật khẩu</label><input type="password" id="user-password" class="glass-input"><p class="text-xs text-gray-500 mt-1">Bỏ trống nếu không muốn thay đổi mật khẩu.</p></div>
+                <div class="flex justify-end gap-3 pt-4"><button type="button" class="glass-btn icon-btn" onclick="closeModal('user-modal')"><i class="fas fa-times"></i></button><button type="submit" class="glass-btn primary icon-btn"><i class="fas fa-save"></i></button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="task-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6 w-full max-w-4xl">
+            <h3 id="task-modal-title" class="text-xl font-bold text-gray-800 mb-6">Tạo kế hoạch mới</h3>
+            <form id="task-form" class="flex flex-col gap-6">
+                <input type="hidden" id="task-id"><input type="hidden" id="task-time"><input type="hidden" id="task-date">
+                
+                <!-- Date/Time Inputs (for calendar view add) -->
+                <div id="task-datetime-inputs" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="task-date-input" class="text-sm-label">Ngày</label>
+                        <input type="date" id="task-date-input" class="glass-input">
+                    </div>
+                    <div>
+                        <label for="task-time-input" class="text-sm-label">Giờ</label>
+                        <input type="time" id="task-time-input" class="glass-input" step="3600">
+                    </div>
+                </div>
+
+                <!-- Main Form Layout -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-5">
+                    <!-- Left Column -->
+                    <div class="space-y-5">
+                        <div>
+                            <label for="task-partner" class="text-sm-label">Đối tác</label>
+                            <input type="text" id="task-partner" class="glass-input" required>
+                        </div>
+
+                        <div>
+                            <label for="task-channel" class="text-sm-label">Kênh</label>
+                            <div class="relative custom-select-container">
+                                <div class="relative">
+                                    <input type="text" id="task-channel" class="glass-input !pr-12" placeholder="Nhập hoặc chọn kênh..." autocomplete="off">
+                                    <button type="button" id="add-channel-btn" class="absolute inset-y-0 right-0 flex items-center justify-center w-12 text-gray-500 hover:text-gray-700 rounded-r-lg hover:bg-gray-200/50 transition" title="Quản lý danh sách kênh">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                                <div id="task-channel-options" class="custom-select-options custom-scrollbar"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="task-content" class="text-sm-label">Nội dung</label>
+                            <textarea id="task-content" class="glass-input" rows="2"></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="task-status" class="text-sm-label">Trạng thái</label>
+                                <div class="custom-select-wrapper">
+                                    <select id="task-status" class="original-select" required>
+                                        <option value="Chưa làm">Chưa làm</option>
+                                        <option value="Đang làm">Đang làm</option>
+                                        <option value="Hoàn thành">Hoàn thành</option>
+                                        <option value="Bù">Kế hoạch bù</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="task-priority" class="text-sm-label">Mức độ ưu tiên</label>
+                                <div class="custom-select-wrapper">
+                                    <select id="task-priority" class="original-select" required>
+                                        <option value="Thấp">Thấp</option>
+                                        <option value="Trung bình" selected>Trung bình</option>
+                                        <option value="Cao">Cao</option>
+                                        <option value="Khẩn cấp">Khẩn cấp</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="space-y-5">
+                        <div>
+                            <label for="task-script-link" class="text-sm-label">Link kịch bản</label>
+                            <input type="url" id="task-script-link" class="glass-input" placeholder="https://...">
+                        </div>
+                        <div>
+                            <label for="task-video-link" class="text-sm-label">Link video (tư liệu)</label>
+                            <input type="url" id="task-video-link" class="glass-input" placeholder="https://...">
+                        </div>
+                        <div>
+                            <label for="task-completed-video-link" class="text-sm-label">Link video đã hoàn thành</label>
+                            <input type="url" id="task-completed-video-link" class="glass-input" placeholder="https://...">
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="task-assignee" class="text-sm-label">Giao cho</label>
+                                <div class="custom-select-wrapper">
+                                    <select id="task-assignee" class="original-select" required></select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="task-points" class="text-sm-label">Story Points</label>
+                                <input type="number" id="task-points" class="glass-input" min="0" value="1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex justify-between items-center pt-2">
+                    <button type="button" id="delete-task-btn" class="hidden glass-btn danger icon-btn" title="Xóa công việc">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                    <div class="flex gap-3">
+                        <button type="button" onclick="closeModal('task-modal')" class="glass-btn icon-btn" title="Đóng">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <button type="submit" class="glass-btn primary icon-btn" title="Lưu công việc">
+                            <i class="fas fa-save"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="group-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6 w-full max-w-md">
+            <h3 id="group-modal-title" class="text-xl font-bold text-gray-800 mb-6">Tạo nhóm mới</h3>
+            <form id="group-form">
+                <div id="create-group-view" class="space-y-4">
+                    <div><label for="new-group-name" class="text-sm-label">Tên nhóm</label><input type="text" id="new-group-name" class="glass-input" placeholder="VD: Team Sáng Tạo Nội Dung"></div>
+                </div>
+                <div id="join-group-view" class="hidden">
+                    <label for="join-group-id" class="text-sm-label">Mã mời nhóm</label><input type="text" id="join-group-id" class="glass-input" placeholder="Nhập mã mời">
+                </div>
+                <div class="flex justify-end gap-3 mt-6"><button type="button" class="glass-btn icon-btn" onclick="closeModal('group-modal')"><i class="fas fa-times"></i></button><button type="submit" class="glass-btn primary icon-btn"><i class="fas fa-check"></i></button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="plan-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6 w-full max-w-md">
+            <h3 id="plan-modal-title" class="text-xl font-bold text-gray-800 mb-6">Tạo kế hoạch mới</h3>
+            <form id="plan-form">
+                <input type="hidden" id="plan-id">
+                <div class="space-y-4">
+                    <div>
+                        <label for="plan-name" class="text-sm-label">Tên kế hoạch</label>
+                        <input type="text" id="plan-name" class="glass-input" placeholder="VD: Kế hoạch tháng 8" required>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="plan-start-date" class="text-sm-label">Ngày bắt đầu</label>
+                            <input type="date" id="plan-start-date" class="glass-input" required>
+                        </div>
+                        <div>
+                            <label for="plan-end-date" class="text-sm-label">Ngày kết thúc</label>
+                            <input type="date" id="plan-end-date" class="glass-input" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-6"><button type="button" class="glass-btn icon-btn" onclick="closeModal('plan-modal')"><i class="fas fa-times"></i></button><button type="submit" class="glass-btn primary icon-btn"><i class="fas fa-save"></i></button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="filter-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold text-gray-800 mb-6">Bộ lọc</h3>
+            <form id="filter-form" class="space-y-4">
+                <div>
+                    <label for="filter-partner-input" class="text-sm-label">Lọc theo đối tác</label>
+                    <input type="text" id="filter-partner-input" placeholder="Nhập tên đối tác..." class="glass-input">
+                </div>
+                <div>
+                    <label for="filter-assignee-select" class="text-sm-label">Lọc theo thành viên</label>
+                    <div class="custom-select-wrapper">
+                        <select id="filter-assignee-select" class="original-select"></select>
+                    </div>
+                </div>
+                <div>
+                    <label for="filter-channel-select" class="text-sm-label">Lọc theo kênh</label>
+                    <div class="custom-select-wrapper">
+                        <select id="filter-channel-select" class="original-select"></select>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center pt-4">
+                    <button type="button" id="clear-filters-btn" class="glass-btn danger">Xóa bộ lọc</button>
+                    <div class="flex gap-3">
+                        <button type="button" class="glass-btn" onclick="closeModal('filter-modal')">Đóng</button>
+                        <button type="submit" class="glass-btn primary">Áp dụng</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div id="confirm-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6 w-full max-w-sm text-center">
+            <div id="confirm-icon" class="mx-auto mb-4 w-14 h-14 rounded-full flex items-center justify-center bg-red-100 text-red-500 text-3xl"><i class="fas fa-exclamation-triangle"></i></div>
+            <h3 id="confirm-title" class="text-lg font-bold text-gray-900 mb-2"></h3>
+            <p id="confirm-text" class="text-sm text-gray-600 mb-6"></p>
+            <div class="flex justify-center gap-4"><button id="confirm-cancel-btn" class="glass-btn icon-btn"><i class="fas fa-times"></i></button><button id="confirm-ok-btn" class="glass-btn danger icon-btn"><i class="fas fa-check"></i></button></div>
+        </div>
+    </div>
+
+    <div id="message-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6 w-full max-w-sm text-center">
+            <div id="message-icon" class="text-5xl mb-4"></div>
+            <h3 id="message-title" class="text-lg font-bold text-gray-900 mb-2"></h3>
+            <p id="message-text" class="text-sm text-gray-600 mb-6"></p>
+            <button class="glass-btn primary w-full" onclick="closeModal('message-modal')">Đóng</button>
+        </div>
+    </div>
+
+    <div id="share-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6 w-full max-w-lg">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Chia sẻ Lịch Kế Hoạch</h3>
+            <div class="flex items-center justify-between mb-6 bg-black/5 p-3 rounded-xl">
+                <span class="font-medium text-gray-700">Bật chế độ chia sẻ công khai</span>
+                <div class="relative inline-block w-10 mr-2 align-middle select-none">
+                    <input type="checkbox" name="toggle" id="public-share-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                    <label for="public-share-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer transition-colors duration-300 ease-in-out"></label>
+                </div>
+            </div>
+            <div id="share-link-container" class="hidden">
+                <label class="text-sm-label">Liên kết chia sẻ</label>
+                <div class="flex gap-2">
+                    <input type="text" id="share-link-input" readonly class="glass-input !bg-black/5">
+                    <button id="copy-share-link-btn" class="glass-btn primary icon-btn flex-shrink-0"><i class="far fa-copy"></i></button>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">Bất kỳ ai có liên kết này đều có thể xem lịch kế hoạch của nhóm bạn ở chế độ chỉ đọc.</p>
+            </div>
+            <div class="flex justify-end mt-6"><button type="button" class="glass-btn icon-btn" onclick="closeModal('share-modal')"><i class="fas fa-times"></i></button></div>
+        </div>
+    </div>
+
+    <div id="friends-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6 w-full max-w-lg flex flex-col max-h-[80vh]">
+            <h3 class="text-xl font-bold text-gray-800 mb-4 flex-shrink-0">Quản lý bạn bè</h3>
+            <div class="mb-4 flex-shrink-0">
+                <form id="send-friend-request-form" class="flex gap-2 mb-2">
+                    <input type="email" id="friend-email-input" class="glass-input flex-1" placeholder="Nhập email để kết bạn" required />
+                    <button type="submit" class="glass-btn primary icon-btn"><i class="fas fa-paper-plane"></i></button>
+                </form>
+                <div id="friend-request-message" class="hidden text-sm mb-2"></div>
+            </div>
+            <div class="flex-grow overflow-y-auto custom-scrollbar -mr-2 pr-2">
+                <div class="mb-4">
+                    <h4 class="font-semibold text-gray-700 mb-2">Lời mời kết bạn</h4>
+                    <ul id="friend-requests-list" class="space-y-2"></ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-gray-700 mb-2">Bạn bè</h4>
+                    <ul id="friends-list" class="space-y-2"></ul>
+                </div>
+            </div>
+            <div class="flex justify-end mt-6 flex-shrink-0"><button type="button" class="glass-btn icon-btn" onclick="closeModal('friends-modal')"><i class="fas fa-times"></i></button></div>
+        </div>
+    </div>
+
+    <!-- Messenger Chat Popup -->
+    <div id="chat-popup" class="hidden fixed top-20 right-4 w-96 h-[600px] flex flex-col glass-pane !rounded-2xl overflow-hidden transition-transform duration-300 ease-in-out translate-y-full">
+        <!-- Main container for both views -->
+        <div id="chat-container" class="relative w-full h-full flex overflow-hidden">
+            <!-- Conversation List View -->
+            <div id="chat-sidebar" class="w-full h-full flex flex-col absolute top-0 left-0 transition-transform duration-300 ease-in-out">
+                <div class="flex items-center justify-between p-3 border-b border-white/50 flex-shrink-0">
+                    <div class="font-bold text-lg text-gray-900">Đoạn chat</div>
+                    <button id="close-chat-popup-btn" class="text-gray-500 hover:text-red-500 text-xl"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="p-2 flex-shrink-0">
+                    <input type="text" id="chat-search" class="w-full glass-input !rounded-full !py-2" placeholder="Tìm kiếm trên Messenger">
+                </div>
+                <div class="flex gap-2 p-2 flex-shrink-0">
+                    <button id="chat-tab-all" class="flex-1 glass-btn !rounded-lg !text-sm !py-2 !font-semibold">Tất cả</button>
+                    <button id="chat-tab-unread" class="flex-1 glass-btn !rounded-lg !text-sm !py-2 !font-semibold">Chưa đọc</button>
+                </div>
+                <div id="chat-conversations-list" class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                    <!-- Conversation items will be populated here -->
+                </div>
+            </div>
+
+            <!-- Active Chat View -->
+            <div id="chat-view" class="w-full h-full flex flex-col absolute top-0 left-0 transition-transform duration-300 ease-in-out translate-x-full bg-white/50">
+                <div id="chat-header" class="p-3 border-b border-white/50 flex items-center gap-3 flex-shrink-0 backdrop-blur-sm bg-white/20">
+                    <button id="back-to-conversations-btn" class="p-2 -ml-2 text-gray-600 hover:text-gray-800"><i class="fas fa-arrow-left"></i></button>
+                    <div id="chat-avatar" class="w-9 h-9 rounded-full bg-indigo-200 flex items-center justify-center text-lg font-bold text-white flex-shrink-0"></div>
+                    <div class="overflow-hidden">
+                        <div id="chat-title" class="font-semibold text-gray-900 truncate"></div>
+                        <div id="chat-subtitle" class="text-xs text-gray-600 truncate"></div>
+                    </div>
+                </div>
+                <div id="chat-messages" class="flex-1 overflow-y-auto p-3 space-y-4 bg-transparent custom-scrollbar">
+                    <!-- Messages will be populated here -->
+                </div>
+                <form id="chat-input-form" class="flex items-center gap-2 p-2 border-t border-white/50 bg-white/20 backdrop-blur-sm">
+                    <input id="chat-input" type="text" class="flex-1 px-4 py-2 border-none rounded-full glass-input" placeholder="Nhập tin nhắn..." autocomplete="off" />
+                    <button type="submit" class="bg-[var(--brand-primary)] text-white w-9 h-9 rounded-full hover:bg-blue-600 transition-colors flex items-center justify-center flex-shrink-0"><i class="fas fa-paper-plane"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="channel-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6 w-full max-w-lg">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Thêm Kênh/Trang</h3>
+            <form id="channel-form">
+                <div id="channel-input-container" class="space-y-3 max-h-72 overflow-y-auto custom-scrollbar -mr-2 pr-2 mb-4">
+                    <!-- Dynamic channel input rows will be inserted here -->
+                </div>
+                <button type="button" id="add-channel-row-btn" class="glass-btn w-full !justify-start !rounded-full !text-sm !font-semibold hover:bg-black/5">
+                    <i class="fas fa-plus mr-2"></i>Thêm kênh khác
+                </button>
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" class="glass-btn" onclick="closeModal('channel-modal')">Hủy</button>
+                    <button type="submit" class="glass-btn primary">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="report-creation-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6 w-full max-w-lg">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800">Tạo Báo Cáo Mới</h3>
+                <button type="button" class="glass-btn icon-btn" onclick="closeModal('report-creation-modal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="space-y-6">
+                <!-- Date Selection -->
+                <div>
+                    <label class="text-sm-label font-semibold">Chọn khoảng thời gian</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                        <div>
+                            <label for="report-start-date" class="text-xs text-gray-600">Ngày bắt đầu</label>
+                            <input type="date" id="report-start-date" class="glass-input">
+                        </div>
+                        <div>
+                            <label for="report-end-date" class="text-xs text-gray-600">Ngày kết thúc</label>
+                            <input type="date" id="report-end-date" class="glass-input">
+                        </div>
+                    </div>
+                </div>
+                <!-- File Upload -->
+                <div>
+                    <label class="text-sm-label font-semibold">Tải lên tệp báo cáo</label>
+                    <div id="report-upload-container" class="mt-2 space-y-3">
+                        <!-- Upload block will be added by JS -->
+                    </div>
+                    <div class="mt-3">
+                        <button id="add-report-page-button" class="glass-btn w-full !justify-start !rounded-lg !text-sm hover:bg-black/5">
+                            <i class="fas fa-plus mr-2"></i>Thêm Page khác
+                        </button>
+                    </div>
+                </div>
+                <!-- Action Button -->
+                <div class="text-center pt-2">
+                    <button id="process-report-button" class="glass-btn primary !w-full !py-3 !text-base !rounded-xl shadow-lg">
+                        Xử lý và Tạo Báo Cáo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="chart-detail-modal" class="modal-overlay hidden">
+        <div class="modal-content p-4 sm:p-6 w-full max-w-3xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="chart-detail-title" class="text-xl font-bold text-gray-800">Chi tiết biểu đồ</h3>
+                <button type="button" class="glass-btn icon-btn !w-10 !h-10" onclick="closeModal('chart-detail-modal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="h-[60vh]">
+                <canvas id="chart-detail-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="avatar-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6 w-full max-w-lg">
+            <h3 class="text-xl font-bold text-gray-800 mb-6">Chọn Avatar</h3>
+            <div id="avatar-selection-grid" class="grid grid-cols-4 sm:grid-cols-6 gap-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+                <!-- Avatar options will be populated by JS -->
+            </div>
+            <div class="flex justify-end mt-6">
+                <button type="button" class="glass-btn" onclick="closeModal('avatar-modal')">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ########################################################### -->
+    <!-- ############ DO NOT EDIT SCRIPT BELOW ##################### -->
+    <!-- ########################################################### -->
+    <script src="firebase-config.js" defer></script>
+    <script src="script.js" type="module" defer></script>
+    <script src="report.js" defer></script>
+    <script src="chat.js" defer></script>
+</body>
+</html>
