@@ -177,6 +177,14 @@ const ui = {
     desktopHeaderButtons: document.getElementById('desktop-header-buttons'),
     mobileHeaderButtons: document.getElementById('mobile-header-buttons'),
 
+    // Mobile Bottom Nav
+    mobileBottomNav: document.getElementById('mobile-bottom-nav'),
+    mobileNavHome: document.getElementById('mobile-nav-home'),
+    mobileNavTools: document.getElementById('mobile-nav-tools'),
+    mobileNavChat: document.getElementById('mobile-nav-chat'),
+    mobileNavFriends: document.getElementById('mobile-nav-friends'),
+    mobileNavProfile: document.getElementById('mobile-nav-profile'),
+
     // Taskbar Group ID
     groupIdDisplay: document.getElementById('group-id-display'),
     groupIdText: document.getElementById('group-id-text'),
@@ -1393,31 +1401,56 @@ async function loadGroupDashboard(groupIds) {
         return;
     }
 
+    let contentHtml = '';
     const groupPromises = groupIds.map(id => getDoc(doc(db, "groups", id)));
     const groupDocs = await Promise.all(groupPromises);
 
-    const content = groupDocs.map(doc => {
-        if (!doc.exists()) return '';
-        const data = doc.data();
-        const isGroupAdmin = data.adminId === currentUser.uid;
+    for (const groupDoc of groupDocs) {
+        if (!groupDoc.exists()) continue;
+        
+        const group = { id: groupDoc.id, ...groupDoc.data() };
+        const isGroupAdmin = group.adminId === currentUser.uid;
+        const memberCount = group.members?.length || 0;
+
+        // Fetch first 5 members for avatars
+        const memberUidsToFetch = (group.members || []).slice(0, 5);
+        const memberPromises = memberUidsToFetch.map(uid => getDoc(doc(db, "users", uid)));
+        const memberDocs = await Promise.all(memberPromises);
+        const members = memberDocs.map(d => d.exists() ? { uid: d.id, ...d.data() } : null).filter(Boolean);
+
+        const avatarsHtml = members.map(member => {
+            const avatarStyle = member.avatarStyle || 'pixel-art';
+            const avatarUrl = `https://api.dicebear.com/8.x/${avatarStyle}/svg?seed=${member.uid}`;
+            return `<img class="group-card-avatar" src="${avatarUrl}" alt="${member.name || ''}" title="${member.name || ''}">`;
+        }).join('');
+
+        const moreMembersCount = memberCount > 5 ? `+${memberCount - 5}` : '';
+        const moreMembersHtml = moreMembersCount ? `<div class="group-card-avatar-more">${moreMembersCount}</div>` : '';
 
         const deleteButtonHtml = isGroupAdmin ? `
-            <button onclick="deleteGroup(event, '${doc.id}', '${data.name}')" class="absolute top-3 right-3 w-8 h-8 bg-red-100/50 text-red-600 rounded-full hover:bg-red-200/80 transition-colors flex items-center justify-center">
+            <button onclick="deleteGroup(event, '${group.id}', '${group.name}')" class="group-card-delete-btn">
                 <i class="fas fa-trash-alt fa-sm"></i>
             </button>
         ` : '';
 
-        return `
-            <div class="group-card relative glass-pane p-5 hover:shadow-xl hover:-translate-y-1">
-                <div onclick="selectGroup('${doc.id}')" class="cursor-pointer pr-10">
-                    <div class="font-bold text-lg text-gray-900">${data.name}</div>
-                    <div class="text-sm text-gray-600">${(data.members || []).length} thành viên</div>
+        contentHtml += `
+            <div class="group-card glass-pane" onclick="selectGroup('${group.id}')">
+                <div class="group-card-content">
+                    <h3 class="group-card-title">${group.name}</h3>
+                    <p class="group-card-member-count">${memberCount} thành viên</p>
+                </div>
+                <div class="group-card-footer">
+                     <div class="group-card-avatars">
+                        ${avatarsHtml}
+                        ${moreMembersHtml}
+                    </div>
+                    <i class="fas fa-chevron-right group-card-arrow"></i>
                 </div>
                 ${deleteButtonHtml}
             </div>`;
-    }).join('');
+    }
     
-    ui.mainContent.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${content}</div>`;
+    ui.mainContent.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${contentHtml}</div>`;
 }
 
 window.selectGroup = async (groupId) => {
@@ -3878,9 +3911,57 @@ document.addEventListener('click', (e) => {
 
 
 // --- App Entry Point ---
+// --- Mobile Bottom Nav Logic ---
+const handleMobileNav = (e) => {
+    const button = e.target.closest('.mobile-nav-btn');
+    if (!button) return;
+
+    // Remove active class from all buttons
+    ui.mobileBottomNav.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    // Add active class to the clicked button
+    button.classList.add('active');
+
+    // Handle navigation
+    switch (button.id) {
+        case 'mobile-nav-home':
+            // Navigate to the main dashboard view
+            if (activeGroupId) {
+                navigateToGroup(activeGroupId);
+            } else {
+                showView('main');
+                viewHistory = [];
+                updateDoc(doc(db, "users", currentUser.uid), { 
+                    activeGroupId: null,
+                    activePlanId: null 
+                });
+            }
+            break;
+        case 'mobile-nav-tools':
+            navigateToView('tools');
+            break;
+        case 'mobile-nav-chat':
+            ui.openChatBtn.click();
+            break;
+        case 'mobile-nav-friends':
+            ui.friendsBtn.click();
+            break;
+        case 'mobile-nav-profile':
+            navigateToView('profile');
+            break;
+    }
+};
+
+
 document.addEventListener('DOMContentLoaded', () => {
     const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
     const sidebar = document.getElementById('sidebar');
+
+    if (ui.mobileBottomNav) {
+        ui.mobileBottomNav.addEventListener('click', handleMobileNav);
+    }
 
     if (toggleSidebarBtn && sidebar) {
         toggleSidebarBtn.addEventListener('click', () => {

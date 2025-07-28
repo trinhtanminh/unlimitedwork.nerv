@@ -18,6 +18,7 @@ dayjs.extend(window.dayjs_plugin_customParseFormat);
 let pageDataSets = {};
 let pageCounter = 0;
 let summaryDataForExport = [];
+let processedReportData = {}; // To store processed data for drill-down
 let isReportInitialized = false;
 
 /**
@@ -212,18 +213,29 @@ function processFile(data, start, end, combinedData, type, pageName) {
                 combinedData[partnerName] = { partnerName, pages: {}, totalPosts: 0, totalViews: 0, totalUsd: 0 };
             }
             if (!combinedData[partnerName].pages[pageNameFromData]) {
-                combinedData[partnerName].pages[pageNameFromData] = { pageName: pageNameFromData, postCount: 0, views: 0, usd: 0 };
+                combinedData[partnerName].pages[pageNameFromData] = { 
+                    pageName: pageNameFromData, 
+                    postCount: 0, 
+                    views: 0, 
+                    usd: 0,
+                    viewsInRange: 0, // For videos posted within the date range
+                    usdInRange: 0,   // For videos posted within the date range
+                    sourcePostRows: [],
+                    sourceRevenueRows: []
+                };
             }
 
             const pageData = combinedData[partnerName].pages[pageNameFromData];
             if (isPostFile) {
                 pageData.postCount += 1;
+                pageData.sourcePostRows.push(row);
             } else {
                 pageData.views += Number(row[colViews3s]) || 0;
                 if (colEarnings) {
                     const earningsValue = String(row[colEarnings] || '0').replace(/[^0-9.-]+/g, "");
                     pageData.usd += Number(earningsValue) || 0;
                 }
+                pageData.sourceRevenueRows.push(row);
             }
         }
     });
@@ -240,7 +252,8 @@ function renderResultTable(data, start, end) {
     const reportTitle = document.getElementById('report-title');
     const startFormatted = dayjs(start).format('DD/M');
     const endFormatted = dayjs(end).format('DD/M');
-    reportTitle.textContent = `BÁO CÁO SỐ WEEKLY TUẦN ${startFormatted} - ${endFormatted}`;
+    const rangeHeader = `${startFormatted} - ${endFormatted}`;
+    reportTitle.textContent = `BÁO CÁO SỐ WEEKLY TUẦN ${rangeHeader}`;
 
     // The new CSS handles the styling for thead, so we can simplify the classes here.
     let tableHTML = `
@@ -250,6 +263,8 @@ function renderResultTable(data, start, end) {
                 <th class="text-left" rowspan="2">Đối tác</th>
                 <th class="text-left" rowspan="2">Page</th>
                 <th rowspan="2">Số video</th>
+                <th rowspan="2">View (${rangeHeader})</th>
+                <th rowspan="2">USD (${rangeHeader})</th>
                 <th rowspan="2">Total view</th>
                 <th rowspan="2">USD</th>
                 <th colspan="2">Tổng</th>
@@ -263,11 +278,14 @@ function renderResultTable(data, start, end) {
     `;
     
     let grandTotalPosts = 0, grandTotalViews = 0, grandTotalUsd = 0;
+    let grandTotalViewsInRange = 0, grandTotalUsdInRange = 0;
 
     data.forEach((partnerData, index) => {
         grandTotalPosts += partnerData.totalPosts;
         grandTotalViews += partnerData.totalViews;
         grandTotalUsd += partnerData.totalUsd;
+        grandTotalViewsInRange += partnerData.totalViewsInRange;
+        grandTotalUsdInRange += partnerData.totalUsdInRange;
         
         const pages = Object.values(partnerData.pages).sort((a,b) => b.usd - a.usd);
         const rowSpan = pages.length > 0 ? `rowspan="${pages.length}"` : '';
@@ -282,9 +300,11 @@ function renderResultTable(data, start, end) {
             }
             tableHTML += `
                 <td>${page.pageName}</td>
-                <td class="video-count-value text-center">${page.postCount.toLocaleString('en-US')}</td>
-                <td class="text-right">${page.views.toLocaleString('en-US')}</td>
-                <td class="usd-value text-right">$${page.usd.toFixed(2)}</td>
+                <td class="video-count-value text-center clickable-metric" data-partner="${partnerData.partnerName}" data-page="${page.pageName}" data-metric="postCount">${page.postCount.toLocaleString('en-US')}</td>
+                <td class="text-right clickable-metric" data-partner="${partnerData.partnerName}" data-page="${page.pageName}" data-metric="viewsInRange">${page.viewsInRange.toLocaleString('en-US')}</td>
+                <td class="usd-value text-right clickable-metric" data-partner="${partnerData.partnerName}" data-page="${page.pageName}" data-metric="usdInRange">$${page.usdInRange.toFixed(2)}</td>
+                <td class="text-right clickable-metric" data-partner="${partnerData.partnerName}" data-page="${page.pageName}" data-metric="views">${page.views.toLocaleString('en-US')}</td>
+                <td class="usd-value text-right clickable-metric" data-partner="${partnerData.partnerName}" data-page="${page.pageName}" data-metric="usd">$${page.usd.toFixed(2)}</td>
             `;
             if (pageIndex === 0) {
                 tableHTML += `
@@ -302,6 +322,8 @@ function renderResultTable(data, start, end) {
             <tr class="font-bold">
                 <td class="text-right" colspan="3">TỔNG CỘNG</td>
                 <td class="video-count-value text-center">${grandTotalPosts.toLocaleString('en-US')}</td>
+                <td class="text-right">${grandTotalViewsInRange.toLocaleString('en-US')}</td>
+                <td class="usd-value text-right">$${grandTotalUsdInRange.toFixed(2)}</td>
                 <td class="text-right">${grandTotalViews.toLocaleString('en-US')}</td>
                 <td class="usd-value text-right">$${grandTotalUsd.toFixed(2)}</td>
                 <td colspan="2"></td>
@@ -433,19 +455,65 @@ async function generateReport() {
             processFile(dataSet.revenueFile, startDate, endDate, combinedData, 'revenue', dataSet.pageName);
         }
 
+        // Calculate in-range metrics (views/USD for videos posted within the date range)
+        for (const partner in combinedData) {
+            for (const page in combinedData[partner].pages) {
+                const pageData = combinedData[partner].pages[page];
+                
+                const headerPost = pageData.sourcePostRows.length > 0 ? pageData.sourcePostRows[0] : {};
+                const colLabelPost = findColumnName(headerPost, COLUMN_CONFIG.LABEL);
+
+                const headerRevenue = pageData.sourceRevenueRows.length > 0 ? pageData.sourceRevenueRows[0] : {};
+                const colLabelRevenue = findColumnName(headerRevenue, COLUMN_CONFIG.LABEL);
+                const colViews3s = findColumnName(headerRevenue, COLUMN_CONFIG.VIEWS_3S);
+                const colEarnings = findColumnName(headerRevenue, COLUMN_CONFIG.EARNINGS);
+
+                if (!colLabelPost || !colLabelRevenue || !colViews3s) {
+                    continue; // Skip if essential columns for this calculation are missing
+                }
+
+                // Get labels of posts that were published within the selected date range.
+                // `sourcePostRows` is already filtered by post date in `processFile`.
+                const inRangePostLabels = new Set(pageData.sourcePostRows.map(row => row[colLabelPost]));
+
+                // Sum views and USD from revenue rows that correspond to the in-range posts.
+                let viewsInRange = 0;
+                let usdInRange = 0;
+                pageData.sourceRevenueRows.forEach(row => {
+                    if (inRangePostLabels.has(row[colLabelRevenue])) {
+                        viewsInRange += Number(row[colViews3s]) || 0;
+                        if (colEarnings) {
+                            const earningsValue = String(row[colEarnings] || '0').replace(/[^0-9.-]+/g, "");
+                            usdInRange += Number(earningsValue) || 0;
+                        }
+                    }
+                });
+                pageData.viewsInRange = viewsInRange;
+                pageData.usdInRange = usdInRange;
+            }
+        }
+
+
         for (const partner in combinedData) {
             let totalPosts = 0, totalViews = 0, totalUsd = 0;
+            let totalViewsInRange = 0, totalUsdInRange = 0;
             for (const page in combinedData[partner].pages) {
-                totalPosts += combinedData[partner].pages[page].postCount;
-                totalViews += combinedData[partner].pages[page].views;
-                totalUsd += combinedData[partner].pages[page].usd;
+                const pageData = combinedData[partner].pages[page];
+                totalPosts += pageData.postCount;
+                totalViews += pageData.views;
+                totalUsd += pageData.usd;
+                totalViewsInRange += pageData.viewsInRange;
+                totalUsdInRange += pageData.usdInRange;
             }
             combinedData[partner].totalPosts = totalPosts;
             combinedData[partner].totalViews = totalViews;
             combinedData[partner].totalUsd = totalUsd;
+            combinedData[partner].totalViewsInRange = totalViewsInRange;
+            combinedData[partner].totalUsdInRange = totalUsdInRange;
         }
 
-        const reportData = Object.values(combinedData).sort((a, b) => b.totalUsd - a.totalUsd);
+        processedReportData = combinedData; // Store for drill-down
+        const reportData = Object.values(processedReportData).sort((a, b) => b.totalUsd - a.totalUsd);
         renderResultTable(reportData, startDate, endDate);
         processAndRenderSummary(reportData);
         allReportsContainer.classList.remove('hidden');
@@ -530,6 +598,11 @@ function initializeEventListeners() {
     if (exportWeeklyReportButton) {
         exportWeeklyReportButton.addEventListener('click', exportWeeklyReportToExcel);
     }
+
+    const resultTable = document.getElementById('result-table');
+    if (resultTable) {
+        resultTable.addEventListener('click', showDataDetails);
+    }
     
     // Add a placeholder for the error message if it doesn't exist, to prevent errors
     if (!document.getElementById('error-message')) {
@@ -576,4 +649,84 @@ if (reportContainer) {
     });
 
     observer.observe(reportContainer, { attributes: true });
+}
+
+/**
+ * Shows a modal with the detailed source data for a clicked metric.
+ * @param {Event} e - The click event object.
+ */
+function showDataDetails(e) {
+    const target = e.target;
+    if (!target.classList.contains('clickable-metric')) return;
+
+    const { partner, page, metric } = target.dataset;
+    
+    if (!processedReportData[partner] || !processedReportData[partner].pages[page]) {
+        console.error("Không tìm thấy dữ liệu chi tiết cho:", partner, page);
+        return;
+    }
+
+    const pageData = processedReportData[partner].pages[page];
+    let sourceRows;
+    let metricName = '';
+
+    if (metric === 'postCount') {
+        sourceRows = pageData.sourcePostRows;
+        metricName = 'Số video';
+    } else if (metric === 'views' || metric === 'usd') {
+        sourceRows = pageData.sourceRevenueRows;
+        metricName = metric === 'views' ? 'Total view' : 'USD';
+    } else if (metric === 'viewsInRange' || metric === 'usdInRange') {
+        const headerPost = pageData.sourcePostRows.length > 0 ? pageData.sourcePostRows[0] : {};
+        const colLabelPost = findColumnName(headerPost, COLUMN_CONFIG.LABEL);
+        const inRangePostLabels = new Set(pageData.sourcePostRows.map(row => row[colLabelPost]));
+
+        const headerRevenue = pageData.sourceRevenueRows.length > 0 ? pageData.sourceRevenueRows[0] : {};
+        const colLabelRevenue = findColumnName(headerRevenue, COLUMN_CONFIG.LABEL);
+
+        sourceRows = pageData.sourceRevenueRows.filter(row => inRangePostLabels.has(row[colLabelRevenue]));
+        
+        const startDate = document.getElementById('report-start-date').value;
+        const endDate = document.getElementById('report-end-date').value;
+        const startFormatted = dayjs(startDate).format('DD/M');
+        const endFormatted = dayjs(endDate).format('DD/M');
+        const rangeHeader = `${startFormatted}-${endFormatted}`;
+        metricName = metric === 'viewsInRange' ? `View (${rangeHeader})` : `USD (${rangeHeader})`;
+    }
+
+
+    const modalTitle = document.getElementById('data-detail-title');
+    const modalContent = document.getElementById('data-detail-content');
+
+    modalTitle.textContent = `Chi tiết ${metricName} cho Page: ${page}`;
+
+    if (!sourceRows || sourceRows.length === 0) {
+        modalContent.innerHTML = `<p class="text-center text-gray-500">Không có dữ liệu gốc để hiển thị.</p>`;
+        openModal('data-detail-modal');
+        return;
+    }
+
+    // Dynamically create headers from the first row of source data
+    const headers = Object.keys(sourceRows[0]);
+    let tableHTML = `<table class="min-w-full text-sm whitespace-nowrap"><thead><tr>`;
+    headers.forEach(header => {
+        tableHTML += `<th>${header}</th>`;
+    });
+    tableHTML += `</tr></thead><tbody>`;
+
+    // Create table rows
+    sourceRows.forEach(row => {
+        tableHTML += `<tr>`;
+        headers.forEach(header => {
+            // Sanitize cell content to prevent HTML injection
+            const cellValue = row[header] === null || row[header] === undefined ? '' : String(row[header]);
+            const sanitizedValue = cellValue.replace(/</g, "<").replace(/>/g, ">");
+            tableHTML += `<td>${sanitizedValue}</td>`;
+        });
+        tableHTML += `</tr>`;
+    });
+
+    tableHTML += `</tbody></table>`;
+    modalContent.innerHTML = tableHTML;
+    openModal('data-detail-modal');
 }

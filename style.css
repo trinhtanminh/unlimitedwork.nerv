@@ -811,6 +811,61 @@ body {
     color: var(--brand-primary); /* Apple Blue */
 }
 
+/* Styles for data drill-down */
+.clickable-metric {
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+    transition: color 0.2s, background-color 0.2s;
+}
+
+.clickable-metric:hover {
+    color: #0056b3; /* Darker blue on hover */
+    background-color: rgba(0, 122, 255, 0.08);
+}
+
+#data-detail-content table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.8rem;
+}
+
+#data-detail-content th {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 1px solid var(--glass-border-color);
+}
+
+#data-detail-content td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--glass-border-color);
+    white-space: normal;
+    word-break: break-word;
+}
+
+#data-detail-content tr:last-child td {
+    border-bottom: none;
+}
+
+#data-detail-content tr:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+#data-detail-modal .modal-content {
+    max-width: 90%;
+    max-height: 85vh;
+}
+
+#data-detail-content {
+    overflow: auto; /* Ensures scrolling on all platforms */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+
 /* --- CUSTOM DATE PICKER STYLES --- */
 .date-picker-day-cell {
     display: flex;
@@ -1028,6 +1083,22 @@ body {
         padding-right: 0.5rem; /* For scrollbar */
     }
 
+    #data-detail-modal .modal-content {
+        width: calc(100% - 1rem);
+        max-width: calc(100% - 1rem);
+        max-height: 80vh;
+    }
+
+    #data-detail-content table {
+        font-size: 0.75rem; /* Smaller font for mobile */
+    }
+
+    #data-detail-content th,
+    #data-detail-content td {
+        padding: 8px 10px; /* Tighter padding */
+        white-space: nowrap; /* Prevent line breaks in cells */
+    }
+
     /* Adjust grid layouts */
     #stats-container, #public-stats-container, #admin-stats-container {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1050,9 +1121,6 @@ body {
     }
 
     /* Header adjustments */
-    #header-title {
-        font-size: 0.9rem;
-    }
 
     /* Taskbar adjustments */
     #taskbar {
@@ -1344,4 +1412,202 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     height: 56px; /* Default height for 1 row */
     padding-top: 16px;
     padding-bottom: 16px;
+}
+
+#main-content {
+    background-color: #ffffff;
+    padding: 1.5rem;
+    border-radius: 1.25rem;
+}
+
+/* --- NEW GROUP CARD STYLES (APPLE LIQUID GLASS) --- */
+.group-card {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+    position: relative;
+    min-height: 160px;
+}
+
+.group-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 36px 0 rgba(31, 38, 135, 0.15);
+}
+
+.group-card-content {
+    flex-grow: 1;
+}
+
+.group-card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin-bottom: 0.5rem;
+}
+
+.group-card-member-count {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: rgba(60, 60, 67, 0.6);
+}
+
+.group-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.25rem;
+}
+
+.group-card-avatars {
+    display: flex;
+    align-items: center;
+}
+
+.group-card-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--glass-bg);
+    margin-left: -10px;
+    object-fit: cover;
+    background-color: #e0e0e0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.group-card-avatar:first-child {
+    margin-left: 0;
+}
+
+.group-card-avatar-more {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--glass-bg);
+    margin-left: -10px;
+    background-color: rgba(0, 0, 0, 0.05);
+    color: #3c3c43;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.group-card-arrow {
+    color: rgba(60, 60, 67, 0.3);
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.group-card:hover .group-card-arrow {
+    transform: translateX(4px);
+    color: var(--brand-primary);
+}
+
+.group-card-delete-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 30px;
+    height: 30px;
+    background-color: rgba(0, 0, 0, 0.05);
+    color: rgba(60, 60, 67, 0.6);
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s ease;
+}
+
+.group-card:hover .group-card-delete-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.group-card-delete-btn:hover {
+    background-color: #FF3B30;
+    color: white;
+}
+
+/* --- MOBILE BOTTOM NAVIGATION (APPLE LIQUID GLASS STYLE) --- */
+#mobile-bottom-nav {
+    /* Inherits glass effect from inline classes, but we can refine it */
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+    background: rgba(248, 248, 248, 0.7); /* Slightly more opaque for legibility */
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+.mobile-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: #8a8a8e; /* A slightly darker, more modern gray */
+    padding: 6px 0;
+    font-size: 1.2rem; /* Icon size */
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    border-radius: 12px; /* Rounded corners */
+    width: 64px; /* Fixed width */
+    height: 56px; /* Fixed height */
+    position: relative;
+    z-index: 1;
+}
+
+.mobile-nav-btn .nav-text {
+    font-size: 0.6rem; /* 10px, slightly smaller */
+    font-weight: 600; /* Bolder */
+    margin-top: 4px;
+    letter-spacing: 0.1px;
+    transition: all 0.3s ease;
+    color: #8a8a8e;
+}
+
+/* Active state has the liquid glass effect */
+.mobile-nav-btn.active {
+    color: var(--brand-primary);
+    transform: translateY(-4px); /* Lift the button up */
+}
+
+.mobile-nav-btn.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 16px; /* Slightly larger radius for the background */
+    background: rgba(255, 255, 255, 0.7);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15), inset 0 1px 1px white;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    z-index: -1;
+    transform: scale(1.1);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.mobile-nav-btn.active .nav-text {
+    color: var(--brand-primary);
+    font-weight: 700;
+}
+
+/* A subtle hover for inactive buttons */
+.mobile-nav-btn:not(.active):hover {
+    color: #333;
+    background-color: rgba(0,0,0,0.04);
+}
+
+/* Adjust main content padding to avoid overlap with bottom nav */
+@media (max-width: 640px) {
+    #app-screen .flex-grow {
+        padding-bottom: 70px; /* Height of the nav bar */
+    }
 }
