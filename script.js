@@ -3,7 +3,7 @@
 // Import from a recent, stable Firebase version
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, addDoc, collection, onSnapshot, updateDoc, deleteDoc, arrayUnion, arrayRemove, query, where, getDocs, Timestamp, writeBatch, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+import { initializeFirestore, getFirestore, doc, setDoc, getDoc, addDoc, collection, onSnapshot, updateDoc, deleteDoc, arrayUnion, arrayRemove, query, where, getDocs, Timestamp, writeBatch, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
 // --- Firebase Config Check ---
 if (firebaseConfig.apiKey.includes("AIzaSyB_P4-Si9ua1b7k4W60z6tcTfK-FXdWpRs") || firebaseConfig.projectId.includes("quan-ly-media")) {
@@ -13,7 +13,9 @@ if (firebaseConfig.apiKey.includes("AIzaSyB_P4-Si9ua1b7k4W60z6tcTfK-FXdWpRs") ||
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
 
 // --- Admin Config ---
 const ADMIN_EMAIL = "antonyminh2025@gmail.com";
