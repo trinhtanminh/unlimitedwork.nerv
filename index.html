@@ -277,7 +277,7 @@
                                     </header>
                             
                                     <!-- Vùng chứa tin nhắn -->
-                                    <main id="chat-messages" class="chat-messages custom-scrollbar flex-1 p-4 md:p-6 space-y-4 overflow-y-auto">
+                                    <main id="ai-chat-messages" class="chat-messages custom-scrollbar flex-1 p-4 md:p-6 space-y-4 overflow-y-auto">
                                         <!-- Tin nhắn sẽ được thêm vào bằng JavaScript -->
                                     </main>
                             
@@ -289,7 +289,7 @@
                                             <button id="remove-image-btn" class="absolute -top-2 -right-2 bg-gray-600 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-md hover:bg-red-500 transition-all">&times;</button>
                                         </div>
                             
-                                        <form id="chat-form" class="flex items-center space-x-3">
+                                        <form id="ai-chat-form" class="flex items-center space-x-3">
                                             <!-- Nút đính kèm file -->
                                             <label for="file-input" id="attach-file-label" class="cursor-pointer p-3 text-gray-500 hover:text-blue-500 hover:bg-gray-200 rounded-full transition-colors">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
@@ -297,7 +297,7 @@
                                             <input type="file" id="file-input" accept="image/*" class="hidden">
                             
                                             <input 
-                                                id="message-input" 
+                                                id="ai-message-input" 
                                                 type="text" 
                                                 placeholder="Nhập câu hỏi..." 
                                                 autocomplete="off"
@@ -880,11 +880,11 @@
                         <div id="chat-subtitle" class="text-xs text-gray-600 truncate"></div>
                     </div>
                 </div>
-                <div id="chat-messages" class="flex-1 overflow-y-auto p-3 space-y-4 bg-transparent custom-scrollbar">
+                <div id="messenger-chat-messages" class="flex-1 overflow-y-auto p-3 space-y-4 bg-transparent custom-scrollbar">
                     <!-- Messages will be populated here -->
                 </div>
-                <form id="chat-input-form" class="flex items-center gap-2 p-2 border-t border-white/50 bg-white/20 backdrop-blur-sm">
-                    <input id="chat-input" type="text" class="flex-1 px-4 py-2 border-none rounded-full glass-input" placeholder="Nhập tin nhắn..." autocomplete="off" />
+                <form id="messenger-chat-form" class="flex items-center gap-2 p-2 border-t border-white/50 bg-white/20 backdrop-blur-sm">
+                    <input id="messenger-chat-input" type="text" class="flex-1 px-4 py-2 border-none rounded-full glass-input" placeholder="Nhập tin nhắn..." autocomplete="off" />
                     <button type="submit" class="bg-[var(--brand-primary)] text-white w-9 h-9 rounded-full hover:bg-blue-600 transition-colors flex items-center justify-center flex-shrink-0"><i class="fas fa-paper-plane"></i></button>
                 </form>
             </div>

@@ -292,9 +292,9 @@ const ui = {
     chatAvatar: document.getElementById('chat-avatar'),
     chatTitle: document.getElementById('chat-title'),
     chatSubtitle: document.getElementById('chat-subtitle'),
-    chatMessages: document.getElementById('chat-messages'),
-    chatInputForm: document.getElementById('chat-input-form'),
-    chatInput: document.getElementById('chat-input'),
+    chatMessages: document.getElementById('messenger-chat-messages'),
+    chatInputForm: document.getElementById('messenger-chat-form'),
+    chatInput: document.getElementById('messenger-chat-input'),
 
     // Filter Modal
     filterForm: document.getElementById('filter-form'),
@@ -3671,54 +3671,62 @@ window.openChatConversation = async (id, type) => {
 
     const q = query(conversationRef, orderBy("sentAt", "desc"), limit(50));
     chatMessagesUnsubscribe = onSnapshot(q, (snapshot) => {
+        ui.chatMessages.innerHTML = ''; // Xóa tin nhắn cũ
         const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).reverse();
-        renderChatMessages(messages);
+        messages.forEach(msg => renderSingleChatMessage(msg)); // Render từng tin nhắn
+        ui.chatMessages.scrollTop = ui.chatMessages.scrollHeight;
     });
 };
 
-function renderChatMessages(messages) {
-    ui.chatMessages.innerHTML = messages.map(msg => {
-        const isMe = msg.senderUid === currentUser.uid;
-        const sender = currentChatContext.members.find(m => m.uid === msg.senderUid) || { name: '...', email: '...' };
-        const senderName = isMe ? 'Bạn' : sender.name || sender.email;
-        const senderColor = userColorUtil.getColor(msg.senderUid);
+function renderSingleChatMessage(msg, isOptimistic = false) {
+    const isMe = msg.senderUid === currentUser.uid;
+    const sender = currentChatContext.members.find(m => m.uid === msg.senderUid) || { name: '...', email: '...' };
+    const senderName = isMe ? 'Bạn' : sender.name || sender.email;
+    const senderColor = userColorUtil.getColor(msg.senderUid);
 
-        const messageActions = isMe ? `
-            <div class="message-actions">
-                <button class="message-action-btn" onclick="toggleEditMode('${msg.id}')"><i class="fas fa-pencil-alt"></i></button>
-                <button class="message-action-btn" onclick="deleteMessage('${msg.id}')"><i class="fas fa-trash-alt"></i></button>
-            </div>
-        ` : '';
+    const messageActions = isMe && !isOptimistic ? `
+        <div class="message-actions">
+            <button class="message-action-btn" onclick="toggleEditMode('${msg.id}')"><i class="fas fa-pencil-alt"></i></button>
+            <button class="message-action-btn" onclick="deleteMessage('${msg.id}')"><i class="fas fa-trash-alt"></i></button>
+        </div>
+    ` : '';
 
-        const messageContainerClasses = `message-container ${isMe ? 'flex-row-reverse' : ''}`;
+    const messageContainerClasses = `message-container ${isMe ? 'flex-row-reverse' : ''}`;
+    const optimisticClass = isOptimistic ? 'optimistic-message' : '';
 
-        return `
-            <div class="flex gap-2.5 ${isMe ? 'justify-end' : 'justify-start'}" id="message-${msg.id}">
-                ${!isMe ? `<div class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm text-white font-bold" style="background-color: ${senderColor};" title="${senderName}">${(senderName[0] || '?').toUpperCase()}</div>` : ''}
-                <div class="${messageContainerClasses}">
-                    <div class="flex flex-col gap-1 max-w-[80%] w-full">
-                        <div class="flex items-center space-x-2 rtl:space-x-reverse ${isMe ? 'justify-end' : ''}">
-                            <span class="text-xs font-bold sender-name" style="color: ${senderColor};">${senderName}</span>
-                            <span class="text-xs font-normal text-gray-500 flex-shrink-0">${formatTime(msg.sentAt)}</span>
-                        </div>
-                        <div class="message-content-wrapper leading-snug p-2.5 rounded-xl ${isMe ? 'bg-blue-500 text-white rounded-br-none' : 'bg-white/80 text-gray-800 rounded-bl-none shadow-sm'}">
-                            <p class="message-text text-sm font-normal break-words">${msg.text}</p>
-                            <div class="message-edit-container hidden">
-                                <div class="message-edit-box">
-                                    <textarea class="message-edit-input-inner w-full bg-transparent border-none focus:ring-0 p-0 resize-none text-sm"></textarea>
-                                    <div class="flex justify-end gap-2 mt-2">
-                                        <button class="glass-btn message-edit-btn" onclick="toggleEditMode('${msg.id}')">Hủy</button>
-                                        <button class="glass-btn primary message-edit-btn" onclick="saveMessageEdit('${msg.id}')">Lưu</button>
-                                    </div>
+    const messageHtml = `
+        <div class="flex gap-2.5 ${isMe ? 'justify-end' : 'justify-start'} ${optimisticClass}" id="message-${msg.id}">
+            ${!isMe ? `<div class="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm text-white font-bold" style="background-color: ${senderColor};" title="${senderName}">${(senderName[0] || '?').toUpperCase()}</div>` : ''}
+            <div class="${messageContainerClasses}">
+                <div class="flex flex-col gap-1 max-w-[80%] w-full">
+                    <div class="flex items-center space-x-2 rtl:space-x-reverse ${isMe ? 'justify-end' : ''}">
+                        <span class="text-xs font-bold sender-name" style="color: ${senderColor};">${senderName}</span>
+                        <span class="text-xs font-normal text-gray-500 flex-shrink-0">${msg.sentAt ? formatTime(msg.sentAt) : 'Đang gửi...'}</span>
+                    </div>
+                    <div class="message-content-wrapper leading-snug p-2.5 rounded-xl ${isMe ? 'bg-blue-500 text-white rounded-br-none' : 'bg-white/80 text-gray-800 rounded-bl-none shadow-sm'}">
+                        <p class="message-text text-sm font-normal break-words">${msg.text}</p>
+                        <div class="message-edit-container hidden">
+                            <div class="message-edit-box">
+                                <textarea class="message-edit-input-inner w-full bg-transparent border-none focus:ring-0 p-0 resize-none text-sm"></textarea>
+                                <div class="flex justify-end gap-2 mt-2">
+                                    <button class="glass-btn message-edit-btn" onclick="toggleEditMode('${msg.id}')">Hủy</button>
+                                    <button class="glass-btn primary message-edit-btn" onclick="saveMessageEdit('${msg.id}')">Lưu</button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    ${messageActions}
                 </div>
+                ${messageActions}
             </div>
-        `;
-    }).join('');
+        </div>
+    `;
+    
+    ui.chatMessages.insertAdjacentHTML('beforeend', messageHtml);
+}
+
+function renderChatMessages(messages) {
+    ui.chatMessages.innerHTML = ''; // Clear existing messages
+    messages.forEach(msg => renderSingleChatMessage(msg));
     ui.chatMessages.scrollTop = ui.chatMessages.scrollHeight;
 }
 
@@ -3726,6 +3734,20 @@ ui.chatInputForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const text = ui.chatInput.value.trim();
     if (!text || !currentChatContext.id) return;
+
+    const tempId = `temp_${Date.now()}`;
+    const optimisticMessage = {
+        id: tempId,
+        text: text,
+        senderUid: currentUser.uid,
+        sentAt: null // Indicate it's being sent
+    };
+
+    // Optimistic UI update
+    renderSingleChatMessage(optimisticMessage, true);
+    ui.chatMessages.scrollTop = ui.chatMessages.scrollHeight;
+    ui.chatInput.value = '';
+
 
     let conversationRef;
     if (currentChatContext.type === 'group') {
@@ -3741,9 +3763,15 @@ ui.chatInputForm.addEventListener('submit', async (e) => {
             senderUid: currentUser.uid,
             sentAt: Timestamp.now()
         });
-        ui.chatInput.value = '';
+        // Firestore listener will handle replacing the optimistic message
     } catch (error) {
         console.error("Error sending message:", error);
+        // Handle error: for example, mark the optimistic message as failed
+        const failedMsgElement = document.getElementById(`message-${tempId}`);
+        if (failedMsgElement) {
+            failedMsgElement.classList.add('message-failed');
+            failedMsgElement.title = 'Gửi thất bại';
+        }
         showMessage('Lỗi', 'Không thể gửi tin nhắn.', true);
     }
 });

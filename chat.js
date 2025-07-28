@@ -1,7 +1,7 @@
 // --- DOM Elements ---
-const chatForm = document.getElementById('chat-form');
-const messageInput = document.getElementById('message-input');
-const messagesContainer = document.getElementById('chat-messages');
+const chatForm = document.getElementById('ai-chat-form');
+const messageInput = document.getElementById('ai-message-input');
+const messagesContainer = document.getElementById('ai-chat-messages');
 const sendButton = document.getElementById('send-button');
 const modelSelector = document.getElementById('model-selector');
 const fileInput = document.getElementById('file-input');
