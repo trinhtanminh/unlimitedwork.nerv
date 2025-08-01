@@ -730,3 +730,172 @@ function showDataDetails(e) {
     modalContent.innerHTML = tableHTML;
     openModal('data-detail-modal');
 }
+
+// =================================================================
+// ================== BÁO CÁO FACEBOOK (CUSTOM) ====================
+// =================================================================
+
+let facebookReportData = [];
+let isFacebookReportInitialized = false;
+
+/**
+ * Renders the entire Facebook report table from the data array.
+ */
+function renderFacebookReportTable() {
+    const tableBody = document.getElementById('facebook-report-table-body');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = facebookReportData.map((row, index) => {
+        // If in edit mode, render input fields, otherwise render static text
+        if (row.isEditing) {
+            return `
+                <tr data-id="${row.id}">
+                    <td class="px-4 py-2 text-center">${index + 1}</td>
+                    <td class="px-4 py-2"><input type="text" class="glass-input !py-1 !px-2 w-full" data-field="page" value="${row.page}"></td>
+                    <td class="px-4 py-2"><input type="text" class="glass-input !py-1 !px-2 w-full" data-field="link" value="${row.link}"></td>
+                    <td class="px-4 py-2"><input type="text" class="glass-input !py-1 !px-2 w-full" data-field="contentType" value="${row.contentType}"></td>
+                    <td class="px-4 py-2"><input type="text" class="glass-input !py-1 !px-2 w-full" data-field="source" value="${row.source}"></td>
+                    <td class="px-4 py-2"><input type="date" class="glass-input !py-1 !px-2 w-full" data-field="postDate" value="${row.postDate}"></td>
+                    <td class="px-4 py-2"><input type="text" class="glass-input !py-1 !px-2 w-full" data-field="personnel" value="${row.personnel}"></td>
+                    <td class="px-4 py-2 text-center">
+                        <button class="glass-btn success icon-btn !w-8 !h-8" data-action="save"><i class="fas fa-save"></i></button>
+                        <button class="glass-btn danger icon-btn !w-8 !h-8" data-action="delete"><i class="fas fa-trash-alt"></i></button>
+                    </td>
+                </tr>
+            `;
+        } else {
+            return `
+                <tr data-id="${row.id}">
+                    <td class="px-4 py-2 text-center">${index + 1}</td>
+                    <td class="px-4 py-2">${row.page}</td>
+                    <td class="px-4 py-2"><a href="${row.link}" target="_blank" class="text-blue-500 hover:underline">${row.link}</a></td>
+                    <td class="px-4 py-2">${row.contentType}</td>
+                    <td class="px-4 py-2">${row.source}</td>
+                    <td class="px-4 py-2">${row.postDate}</td>
+                    <td class="px-4 py-2">${row.personnel}</td>
+                    <td class="px-4 py-2 text-center">
+                        <button class="glass-btn icon-btn !w-8 !h-8" data-action="edit"><i class="fas fa-pencil-alt"></i></button>
+                        <button class="glass-btn danger icon-btn !w-8 !h-8" data-action="delete"><i class="fas fa-trash-alt"></i></button>
+                    </td>
+                </tr>
+            `;
+        }
+    }).join('');
+}
+
+/**
+ * Adds a new, empty row to the Facebook report data and re-renders the table.
+ */
+function addFacebookReportRow() {
+    const newRow = {
+        id: Date.now(),
+        page: '',
+        link: '',
+        contentType: '',
+        source: '',
+        postDate: new Date().toISOString().slice(0, 10), // Default to today
+        personnel: '',
+        isEditing: true // Start in editing mode
+    };
+    facebookReportData.push(newRow);
+    renderFacebookReportTable();
+}
+
+/**
+ * Handles clicks on the table for actions like edit, save, delete.
+ * @param {Event} e The click event.
+ */
+function handleFacebookTableClick(e) {
+    const actionButton = e.target.closest('button');
+    if (!actionButton) return;
+
+    const rowElement = actionButton.closest('tr');
+    const rowId = Number(rowElement.dataset.id);
+    const action = actionButton.dataset.action;
+
+    const rowIndex = facebookReportData.findIndex(row => row.id === rowId);
+    if (rowIndex === -1) return;
+
+    if (action === 'edit') {
+        facebookReportData[rowIndex].isEditing = true;
+    } else if (action === 'save') {
+        const inputs = rowElement.querySelectorAll('input, select');
+        inputs.forEach(input => {
+            facebookReportData[rowIndex][input.dataset.field] = input.value;
+        });
+        facebookReportData[rowIndex].isEditing = false;
+    } else if (action === 'delete') {
+        facebookReportData.splice(rowIndex, 1);
+    }
+
+    renderFacebookReportTable();
+}
+
+/**
+ * Exports the Facebook report data to an Excel file.
+ */
+function exportFacebookReportToExcel() {
+    if (facebookReportData.length === 0) {
+        alert("Không có dữ liệu để xuất file.");
+        return;
+    }
+    // Create a clean version of the data for export (without isEditing flag)
+    const dataToExport = facebookReportData.map((row, index) => ({
+        'STT': index + 1,
+        'Page/Cổng đăng': row.page,
+        'Link bài viết': row.link,
+        'Loại nội dung': row.contentType,
+        'Nguồn nội dung': row.source,
+        'Ngày đăng bài': row.postDate,
+        'Nhân sự đăng bài': row.personnel
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Báo cáo Facebook");
+    XLSX.writeFile(wb, "Bao_cao_Facebook.xlsx");
+}
+
+
+/**
+ * Initializes event listeners for the custom Facebook report section.
+ */
+function initializeFacebookReport() {
+    if (isFacebookReportInitialized) return;
+
+    const addRowBtn = document.getElementById('add-facebook-report-row-btn');
+    const exportBtn = document.getElementById('export-facebook-report-btn');
+    const table = document.getElementById('facebook-report-table');
+
+    if (addRowBtn) {
+        addRowBtn.addEventListener('click', addFacebookReportRow);
+    }
+    if (exportBtn) {
+        exportBtn.addEventListener('click', exportFacebookReportToExcel);
+    }
+    if (table) {
+        table.addEventListener('click', handleFacebookTableClick);
+    }
+    
+    // Initial render
+    renderFacebookReportTable();
+
+    isFacebookReportInitialized = true;
+}
+
+// Use a MutationObserver to initialize the Facebook report tool when its container becomes visible.
+const facebookReportContainer = document.getElementById('facebook-report-content');
+if (facebookReportContainer) {
+    const fbObserver = new MutationObserver((mutationsList) => {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                const isHidden = facebookReportContainer.classList.contains('hidden');
+                if (!isHidden) {
+                    initializeFacebookReport();
+                }
+            }
+        }
+    });
+
+    fbObserver.observe(facebookReportContainer, { attributes: true });
+}

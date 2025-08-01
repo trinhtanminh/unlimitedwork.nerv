@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Unlimited Work</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -124,7 +125,17 @@
                         <div id="tool-list-container" class="pl-4 mt-2 space-y-1 sidebar-submenu">
                             <a href="#" id="sidebar-ai-tools-btn" class="block py-1 px-3 rounded-md text-sm text-gray-600 hover:bg-gray-200/50 sidebar-text">Công Cụ AI</a>
                             <a href="#" class="block py-1 px-3 rounded-md text-sm text-gray-600 hover:bg-gray-200/50 sidebar-text">Công Cụ YouTube</a>
-                            <a href="#" id="facebook-tools-btn" class="block py-1 px-3 rounded-md text-sm text-gray-600 hover:bg-gray-200/50 sidebar-text">Công Cụ Facebook</a>
+                        </div>
+                    </div>
+                    <!-- "Quản lý báo cáo" category -->
+                    <div>
+                        <button id="toggle-report-category-btn" class="w-full flex justify-between items-center py-2 px-3 rounded-lg text-left text-sm font-semibold text-gray-700 hover:bg-gray-200/50 transition-colors" aria-expanded="true">
+                            <span class="flex items-center gap-3"><i class="fas fa-chart-pie"></i> <span class="sidebar-text">Quản lý báo cáo</span></span>
+                            <i class="fas fa-chevron-down text-xs transition-transform sidebar-chevron"></i>
+                        </button>
+                        <div id="report-list-container" class="pl-4 mt-2 space-y-1 sidebar-submenu">
+                            <a href="#" id="sidebar-mcv-report-btn" class="block py-1 px-3 rounded-md text-sm text-gray-600 hover:bg-gray-200/50 sidebar-text">Báo cáo tuần Facebook MCV</a>
+                            <a href="#" id="sidebar-facebook-report-btn" class="block py-1 px-3 rounded-md text-sm text-gray-600 hover:bg-gray-200/50 sidebar-text">Báo cáo Facebook</a>
                         </div>
                     </div>
                 </nav>
@@ -184,15 +195,6 @@
                                         <h3 class="text-lg font-bold text-gray-800 mb-2">Công Cụ YouTube</h3>
                                         <p class="text-sm text-gray-600 mb-4 flex-grow">Tối ưu hóa và quản lý kênh YouTube của bạn một cách hiệu quả.</p>
                                         <button class="glass-btn primary mt-auto w-full">Khám phá</button>
-                                    </div>
-                                    <!-- Facebook Tool Card -->
-                                    <div class="glass-pane p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105">
-                                        <div class="w-16 h-16 rounded-full bg-sky-100 flex items-center justify-center mb-4">
-                                            <i class="fab fa-facebook text-3xl text-sky-600"></i>
-                                        </div>
-                                        <h3 class="text-lg font-bold text-gray-800 mb-2">Công Cụ Facebook</h3>
-                                        <p class="text-sm text-gray-600 mb-4 flex-grow">Quản lý và phân tích các hoạt động trên Facebook, bao gồm cả báo cáo MCV.</p>
-                                        <button id="navigate-to-facebook-tools-btn" class="glass-btn primary mt-auto w-full">Truy cập</button>
                                     </div>
                                 </div>
                             </main>
@@ -319,6 +321,41 @@
                                 <!-- Tools will be populated here -->
                             </main>
 
+                            <!-- Facebook Report Content -->
+                            <main id="facebook-report-content" class="hidden h-full bg-white rounded-2xl p-6 flex flex-col">
+                                <div class="text-left mb-6 flex-shrink-0">
+                                    <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900">Báo cáo Facebook</h1>
+                                    <p class="mt-2 text-base text-gray-500">Đây là nơi để xem và quản lý báo cáo Facebook.</p>
+                                </div>
+                                <div class="flex justify-between items-center mb-4 flex-shrink-0">
+                                    <button id="add-facebook-report-row-btn" class="glass-btn primary">
+                                        <i class="fas fa-plus mr-2"></i>Thêm dòng
+                                    </button>
+                                    <button id="export-facebook-report-btn" class="glass-btn">
+                                        <i class="fas fa-file-excel mr-2"></i>Xuất Excel
+                                    </button>
+                                </div>
+                                <div class="flex-grow overflow-auto custom-scrollbar">
+                                    <table id="facebook-report-table" class="min-w-full text-sm whitespace-nowrap">
+                                        <thead class="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0">
+                                            <tr>
+                                                <th scope="col" class="px-4 py-3">STT</th>
+                                                <th scope="col" class="px-4 py-3">Page/Cổng đăng</th>
+                                                <th scope="col" class="px-4 py-3">Link bài viết</th>
+                                                <th scope="col" class="px-4 py-3">Loại nội dung</th>
+                                                <th scope="col" class="px-4 py-3">Nguồn nội dung</th>
+                                                <th scope="col" class="px-4 py-3">Ngày đăng bài</th>
+                                                <th scope="col" class="px-4 py-3">Nhân sự đăng bài</th>
+                                                <th scope="col" class="px-4 py-3">Hành động</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="facebook-report-table-body">
+                                            <!-- Rows will be populated by JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </main>
+
                             <!-- Facebook MCV Report Content -->
                             <main id="facebook-mcv-report-content" class="hidden h-full report-background">
                                 <div class="flex flex-col h-full">
@@ -374,6 +411,33 @@
                                                  </div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </main>
+                            <!-- Report Management Content -->
+                            <main id="report-management-content" class="hidden h-full bg-white rounded-2xl p-6">
+                                <div class="text-left mb-6">
+                                    <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900">Quản lý báo cáo</h1>
+                                    <p class="mt-2 text-base text-gray-500">Xem và quản lý các báo cáo của bạn.</p>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <!-- Facebook MCV Report Card -->
+                                    <div id="navigate-to-mcv-report-card" class="glass-pane p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105 cursor-pointer">
+                                        <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4">
+                                            <i class="fas fa-chart-bar text-3xl text-blue-500"></i>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-800 mb-2">Báo cáo tuần Facebook MCV</h3>
+                                        <p class="text-sm text-gray-600 mb-4 flex-grow">Tự động hóa việc tạo và quản lý báo cáo tuần cho các trang Facebook.</p>
+                                        <button class="glass-btn primary mt-auto w-full">Truy cập</button>
+                                    </div>
+                                    <!-- Facebook Report Card -->
+                                    <div id="navigate-to-facebook-report-card" class="glass-pane p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105 cursor-pointer">
+                                        <div class="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
+                                            <i class="fab fa-facebook-f text-3xl text-indigo-500"></i>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-800 mb-2">Báo cáo Facebook</h3>
+                                        <p class="text-sm text-gray-600 mb-4 flex-grow">Xem và quản lý các báo cáo liên quan đến Facebook.</p>
+                                        <button class="glass-btn primary mt-auto w-full">Truy cập</button>
                                     </div>
                                 </div>
                             </main>

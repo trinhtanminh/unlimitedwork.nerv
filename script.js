@@ -68,6 +68,8 @@ let filterChannelValue = '';
 const getCurrentView = () => {
     if (!ui.profileContent.classList.contains('hidden')) return 'profile';
     if (!ui.statisticsContent.classList.contains('hidden')) return 'statistics';
+    if (!ui.reportManagementContent.classList.contains('hidden')) return 'report-management';
+    if (!ui.facebookReportContent.classList.contains('hidden')) return 'facebook-report';
     if (!ui.facebookMcvReportContent.classList.contains('hidden')) return 'facebook-mcv-report';
     if (!ui.facebookToolsContent.classList.contains('hidden')) return 'facebook-tools';
     if (!ui.contentWriterAssistantContent.classList.contains('hidden')) return 'content-writer-assistant';
@@ -159,6 +161,8 @@ const ui = {
     contentWriterAssistantContent: document.getElementById('content-writer-assistant-content'),
     facebookToolsContent: document.getElementById('facebook-tools-content'),
     facebookMcvReportContent: document.getElementById('facebook-mcv-report-content'),
+    facebookReportContent: document.getElementById('facebook-report-content'),
+    reportManagementContent: document.getElementById('report-management-content'),
     statsContainer: document.getElementById('stats-container'),
     logoutBtn: document.getElementById('logout-btn'),
     headerTitle: document.getElementById('header-title'),
@@ -319,10 +323,17 @@ const ui = {
     // Tool Category
     toggleToolCategoryBtn: document.getElementById('toggle-tool-category-btn'),
     toolListContainer: document.getElementById('tool-list-container'),
-    facebookToolsBtn: document.getElementById('facebook-tools-btn'),
     sidebarAiToolsBtn: document.getElementById('sidebar-ai-tools-btn'),
-    navigateToFacebookToolsBtn: document.getElementById('navigate-to-facebook-tools-btn'),
     navigateToAiToolsBtn: document.getElementById('navigate-to-ai-tools-btn'),
+
+    // Report Category
+    // Report Category
+    toggleReportCategoryBtn: document.getElementById('toggle-report-category-btn'),
+    reportListContainer: document.getElementById('report-list-container'),
+    sidebarMcvReportBtn: document.getElementById('sidebar-mcv-report-btn'),
+    navigateToMcvReportCard: document.getElementById('navigate-to-mcv-report-card'),
+    sidebarFacebookReportBtn: document.getElementById('sidebar-facebook-report-btn'),
+    navigateToFacebookReportCard: document.getElementById('navigate-to-facebook-report-card'),
 
     // Content Writer Assistant
     contentWriterBtn: document.getElementById('content-writer-btn'),
@@ -348,7 +359,7 @@ const updateHeaderButtons = (view) => {
     const isProfileView = !ui.profileContent.classList.contains('hidden');
     const isStatsView = !ui.statisticsContent.classList.contains('hidden');
     const isToolsView = !ui.toolsContent.classList.contains('hidden') || !ui.aiToolsContent.classList.contains('hidden') || !ui.contentWriterAssistantContent.classList.contains('hidden');
-    const isFacebookView = !ui.facebookToolsContent.classList.contains('hidden') || !ui.facebookMcvReportContent.classList.contains('hidden');
+    const isFacebookView = !ui.facebookToolsContent.classList.contains('hidden') || !ui.facebookMcvReportContent.classList.contains('hidden') || !ui.facebookReportContent.classList.contains('hidden');
 
     const isGroupDashboard = !activeGroupId && !activePlanId;
     const isPlanDashboard = activeGroupId && !activePlanId;
@@ -2946,7 +2957,9 @@ const showView = (viewName) => {
     const isContentWriterAssistant = viewName === 'content-writer-assistant';
     const isFacebookTools = viewName === 'facebook-tools';
     const isFacebookMcvReport = viewName === 'facebook-mcv-report';
-    const isMainView = !isProfile && !isStats && !isTools && !isFacebookTools && !isFacebookMcvReport && !isAiTools && !isContentWriterAssistant;
+    const isFacebookReport = viewName === 'facebook-report';
+    const isReportManagement = viewName === 'report-management';
+    const isMainView = !isProfile && !isStats && !isTools && !isFacebookTools && !isFacebookMcvReport && !isFacebookReport && !isAiTools && !isContentWriterAssistant && !isReportManagement;
 
     // Hide stats container for all special views. It will be re-enabled by loadScheduleView if needed.
     if (!isMainView) {
@@ -2954,7 +2967,7 @@ const showView = (viewName) => {
     }
 
     // Determine which top-level container to show
-    const showMainContainer = isMainView || isTools || isFacebookTools || isFacebookMcvReport || isAiTools || isContentWriterAssistant;
+    const showMainContainer = isMainView || isTools || isFacebookTools || isFacebookMcvReport || isFacebookReport || isAiTools || isContentWriterAssistant || isReportManagement;
     ui.mainContentContainer.classList.toggle('hidden', !showMainContainer);
     ui.profileContent.classList.toggle('hidden', !isProfile);
     ui.statisticsContent.classList.toggle('hidden', !isStats);
@@ -2967,6 +2980,8 @@ const showView = (viewName) => {
         ui.contentWriterAssistantContent.classList.toggle('hidden', !isContentWriterAssistant);
         ui.facebookToolsContent.classList.toggle('hidden', !isFacebookTools);
         ui.facebookMcvReportContent.classList.toggle('hidden', !isFacebookMcvReport);
+        ui.facebookReportContent.classList.toggle('hidden', !isFacebookReport);
+        ui.reportManagementContent.classList.toggle('hidden', !isReportManagement);
     }
 
     if (isProfile) {
@@ -2985,6 +3000,10 @@ const showView = (viewName) => {
         renderFacebookTools();
     } else if (isFacebookMcvReport) {
         ui.headerTitle.textContent = 'Báo cáo tuần Facebook MCV';
+    } else if (isFacebookReport) {
+        ui.headerTitle.textContent = 'Báo cáo Facebook';
+    } else if (isReportManagement) {
+        ui.headerTitle.textContent = 'Quản lý báo cáo';
     } else {
         // Restore original header logic
         if (activeGroupId && activePlanId) {
@@ -3052,13 +3071,6 @@ ui.profileBtn.addEventListener('click', () => {
     navigateToView('profile');
 });
 
-if (ui.navigateToFacebookToolsBtn) {
-    ui.navigateToFacebookToolsBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        navigateToView('facebook-tools');
-    });
-}
-
 if (ui.navigateToAiToolsBtn) {
     ui.navigateToAiToolsBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -3080,6 +3092,34 @@ if (ui.sidebarAiToolsBtn) {
     });
 }
 
+if (ui.sidebarMcvReportBtn) {
+    ui.sidebarMcvReportBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigateToView('facebook-mcv-report');
+    });
+}
+
+if (ui.navigateToMcvReportCard) {
+    ui.navigateToMcvReportCard.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigateToView('facebook-mcv-report');
+    });
+}
+
+if (ui.sidebarFacebookReportBtn) {
+    ui.sidebarFacebookReportBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigateToView('facebook-report');
+    });
+}
+
+if (ui.navigateToFacebookReportCard) {
+    ui.navigateToFacebookReportCard.addEventListener('click', (e) => {
+        e.preventDefault();
+        navigateToView('facebook-report');
+    });
+}
+
 if (ui.profileAvatarContainer) {
     ui.profileAvatarContainer.addEventListener('click', () => {
         renderAvatarSelection();
@@ -3087,46 +3127,7 @@ if (ui.profileAvatarContainer) {
     });
 }
 
-ui.facebookToolsBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    navigateToView('facebook-tools');
-});
-
 function renderFacebookTools() {
-    ui.facebookToolsContent.innerHTML = `
-        <div class="text-left mb-6">
-            <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900">Công Cụ Facebook</h1>
-            <p class="mt-2 text-base text-gray-500">Các công cụ được thiết kế để tối ưu hóa quy trình làm việc của bạn trên nền tảng Facebook.</p>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div id="facebook-mcv-report-card" 
-                 class="glass-pane p-6 flex flex-col items-center text-center transition-all duration-300 transform hover:scale-105 hover:shadow-2xl cursor-pointer group">
-                <div class="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mb-5 border-4 border-white shadow-md transition-all duration-300 group-hover:bg-blue-500">
-                    <i class="fas fa-chart-bar text-4xl text-blue-500 transition-all duration-300 group-hover:text-white group-hover:scale-110"></i>
-                </div>
-                <h3 class="text-lg font-bold text-gray-800 mb-2">Báo cáo tuần MCV</h3>
-                <p class="text-sm text-gray-600 mb-4 flex-grow">Tự động hóa việc tạo và quản lý báo cáo tuần cho các trang Facebook của bạn.</p>
-                <button class="glass-btn primary mt-auto w-full !rounded-full !font-semibold transition-all duration-300 group-hover:bg-blue-600">
-                    Truy cập Công cụ
-                </button>
-            </div>
-            <!-- Placeholder for another tool -->
-            <div class="glass-pane p-6 flex flex-col items-center text-center bg-white/40 border-dashed border-2 border-gray-300">
-                <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-5">
-                    <i class="fas fa-plus text-4xl text-gray-400"></i>
-                </div>
-                <h3 class="text-lg font-bold text-gray-500 mb-2">Công cụ mới sắp ra mắt</h3>
-                <p class="text-sm text-gray-400 mb-4 flex-grow">Chúng tôi đang phát triển các tính năng mới để hỗ trợ bạn tốt hơn.</p>
-                 <button class="glass-btn mt-auto w-full !rounded-full !font-semibold" disabled>
-                    Sắp có
-                </button>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('facebook-mcv-report-card').addEventListener('click', () => {
-        navigateToView('facebook-mcv-report');
-    });
 }
 
 // --- Statistics View Logic ---
@@ -4027,6 +4028,19 @@ document.addEventListener('DOMContentLoaded', () => {
             ui.toggleToolCategoryBtn.setAttribute('aria-expanded', !isExpanded);
             ui.toolListContainer.classList.toggle('hidden', isExpanded);
             ui.toggleToolCategoryBtn.querySelector('.sidebar-chevron').classList.toggle('rotate-180', !isExpanded);
+        });
+    }
+
+    if (ui.toggleReportCategoryBtn) {
+        ui.toggleReportCategoryBtn.addEventListener('click', () => {
+            // Navigate to the main tools view
+            navigateToView('report-management');
+
+            // Also keep the toggle functionality
+            const isExpanded = ui.toggleReportCategoryBtn.getAttribute('aria-expanded') === 'true';
+            ui.toggleReportCategoryBtn.setAttribute('aria-expanded', !isExpanded);
+            ui.reportListContainer.classList.toggle('hidden', isExpanded);
+            ui.toggleReportCategoryBtn.querySelector('.sidebar-chevron').classList.toggle('rotate-180', !isExpanded);
         });
     }
 });
