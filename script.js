@@ -4048,14 +4048,4 @@ document.addEventListener('DOMContentLoaded', () => {
 window.onload = () => {
     handleRouting();
     handleResize(); // Initial check
-    // Basic Developer Tools check
-    setInterval(() => {
-        const before = new Date().getTime();
-        //debugger;
-        const after = new Date().getTime();
-        if (after - before > 100) {
-            // This is just a deterrent, not foolproof.
-            document.body.innerHTML = '<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:black;color:white;display:flex;align-items:center;justify-content:center;font-size:24px;text-align:center;">Vui lòng không sử dụng công cụ dành cho nhà phát triển.</div>';
-        }
-    }, 1000);
 };

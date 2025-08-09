@@ -206,7 +206,7 @@ function processFile(data, start, end, combinedData, type, pageName) {
 
         if (rowDate.isValid() && rowDate.isAfter(startDate.subtract(1, 'day')) && rowDate.isBefore(endDate.add(1, 'day'))) {
             const originalLabel = row[colLabel] || "Không có nhãn";
-            const partnerName = (originalLabel.split('_').find(p => p.startsWith('PN')) || 'Không xác định').trim();
+            const partnerName = (originalLabel.split('_')[2] || 'Không xác định').trim();
             const pageNameFromData = (row[colPageName] || originalLabel.split('_')[1] || 'Không xác định').trim();
 
             if (!combinedData[partnerName]) {
