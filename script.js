@@ -4356,4 +4356,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// --- Collapse forms on empty area click ---
+if (utilityUI.notesContent) {
+    utilityUI.notesContent.addEventListener('click', (e) => {
+        if (!utilityUI.newNoteForm.contains(e.target) && !utilityUI.showNoteFormBtn.contains(e.target)) {
+            utilityUI.newNoteForm.classList.add('hidden');
+            utilityUI.showNoteFormBtn.classList.remove('hidden');
+        }
+    });
+}
+
+if (utilityUI.linksContent) {
+    utilityUI.linksContent.addEventListener('click', (e) => {
+        if (!utilityUI.newLinkForm.contains(e.target) && !utilityUI.showLinkFormBtn.contains(e.target)) {
+            utilityUI.newLinkForm.classList.add('hidden');
+            utilityUI.showLinkFormBtn.classList.remove('hidden');
+        }
+    });
+}
 }
