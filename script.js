@@ -4049,3 +4049,311 @@ window.onload = () => {
     handleRouting();
     handleResize(); // Initial check
 };
+
+// ======================================================================
+// ===================== UTILITY POPUP SECTION ==========================
+// ======================================================================
+const utilityUI = {
+    fab: document.getElementById('utility-fab'),
+    popup: document.getElementById('utility-popup'),
+    closeBtn: document.getElementById('close-utility-popup-btn'),
+    notesTab: document.getElementById('utility-tab-notes'),
+    linksTab: document.getElementById('utility-tab-links'),
+    notesContent: document.getElementById('utility-notes-content'),
+    linksContent: document.getElementById('utility-links-content'),
+    // Notes UI
+    showNoteFormBtn: document.getElementById('show-note-form-btn'),
+    newNoteForm: document.getElementById('new-note-form'),
+    noteInput: document.getElementById('note-input'),
+    addNoteBtn: document.getElementById('add-note-btn'),
+    notesList: document.getElementById('notes-list'),
+    // Links UI
+    showLinkFormBtn: document.getElementById('show-link-form-btn'),
+    newLinkForm: document.getElementById('new-link-form'),
+    linkUrlInput: document.getElementById('link-url-input'),
+    linkNameInput: document.getElementById('link-name-input'),
+    linkCategoryInput: document.getElementById('link-category-input'),
+    linkCategoryOptions: document.getElementById('link-category-options'),
+    addNewCategoryBtn: document.getElementById('add-new-category-btn'),
+    addLinkBtn: document.getElementById('add-link-btn'),
+    linksList: document.getElementById('links-list'),
+};
+
+// --- Data Storage ---
+const getStoredData = (key) => {
+    try {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : [];
+    } catch (e) {
+        console.error(`Error reading ${key} from localStorage`, e);
+        return [];
+    }
+};
+
+const setStoredData = (key, data) => {
+    try {
+        localStorage.setItem(key, JSON.stringify(data));
+    } catch (e) {
+        console.error(`Error writing ${key} to localStorage`, e);
+    }
+};
+
+// --- Notes Logic ---
+const renderNotes = () => {
+    const notes = getStoredData('userNotes');
+    if (notes.length === 0) {
+        utilityUI.notesList.innerHTML = `<p class="text-sm text-gray-500 text-center">Chưa có ghi chú nào.</p>`;
+        return;
+    }
+    utilityUI.notesList.innerHTML = notes.sort((a, b) => b.createdAt - a.createdAt).map(note => `
+        <div class="note-item">
+            <p class="note-content">${note.content}</p>
+            <div class="note-actions">
+                <span class="text-xs text-gray-400 mr-2">${new Date(note.createdAt).toLocaleString('vi-VN')}</span>
+                <button data-note-id="${note.id}" class="delete-note-btn"><i class="fas fa-trash-alt"></i></button>
+            </div>
+        </div>
+    `).join('');
+};
+
+const addNote = () => {
+    const content = utilityUI.noteInput.value.trim();
+    if (!content) return;
+
+    const notes = getStoredData('userNotes');
+    const newNote = {
+        id: `note_${Date.now()}`,
+        content: content,
+        createdAt: Date.now(),
+    };
+    notes.push(newNote);
+    setStoredData('userNotes', notes);
+    utilityUI.noteInput.value = '';
+    renderNotes();
+    // Hide form and show button again
+    utilityUI.newNoteForm.classList.add('hidden');
+    utilityUI.showNoteFormBtn.classList.remove('hidden');
+};
+
+const deleteNote = (noteId) => {
+    let notes = getStoredData('userNotes');
+    notes = notes.filter(note => note.id !== noteId);
+    setStoredData('userNotes', notes);
+    renderNotes();
+};
+
+// --- Links Logic ---
+const renderLinks = () => {
+    const links = getStoredData('userLinks');
+    if (links.length === 0) {
+        utilityUI.linksList.innerHTML = `<p class="text-sm text-gray-500 text-center">Chưa có link nào được lưu.</p>`;
+        return;
+    }
+
+    const linksByCategory = links.reduce((acc, link) => {
+        const category = link.category || 'Chưa phân loại';
+        if (!acc[category]) {
+            acc[category] = [];
+        }
+        acc[category].push(link);
+        return acc;
+    }, {});
+
+    utilityUI.linksList.innerHTML = Object.keys(linksByCategory).sort().map(category => `
+        <div class="link-category">
+            <h4 class="link-category-title">${category}</h4>
+            <div class="space-y-1">
+                ${linksByCategory[category].map(link => `
+                    <div class="link-item">
+                        <a href="${link.url}" target="_blank" rel="noopener noreferrer" title="${link.url}">${link.name}</a>
+                        <div class="link-item-actions">
+                            <button data-link-id="${link.id}" class="delete-link-btn"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
+};
+
+const populateLinkCategoryOptions = (filter = '') => {
+    const links = getStoredData('userLinks');
+    const categories = [...new Set(links.map(link => link.category).filter(Boolean))].sort();
+    
+    const filtered = categories.filter(c => c.toLowerCase().includes(filter.toLowerCase()));
+
+    if (filtered.length === 0 && !filter) {
+        utilityUI.linkCategoryOptions.innerHTML = `<div class="custom-select-option text-gray-500">Chưa có danh mục.</div>`;
+    } else {
+        utilityUI.linkCategoryOptions.innerHTML = filtered.map(c => `
+            <div class="custom-select-option" data-value="${c}">${c}</div>
+        `).join('');
+    }
+};
+
+const setLinkCategoryOptionsVisible = (visible) => {
+    utilityUI.linkCategoryOptions.classList.toggle('visible', visible);
+};
+
+const addLink = () => {
+    const url = utilityUI.linkUrlInput.value.trim();
+    const name = utilityUI.linkNameInput.value.trim();
+    const category = utilityUI.linkCategoryInput.value.trim();
+
+    if (!url || !name || !category) {
+        showMessage('Lỗi', 'Vui lòng điền đầy đủ URL, Tên link và Danh mục.', true);
+        return;
+    }
+    
+    // Basic URL validation
+    try {
+        new URL(url);
+    } catch (_) {
+        showMessage('Lỗi', 'URL không hợp lệ. Vui lòng bao gồm http:// hoặc https://', true);
+        return;
+    }
+
+    const links = getStoredData('userLinks');
+    const newLink = {
+        id: `link_${Date.now()}`,
+        url,
+        name,
+        category,
+    };
+    links.push(newLink);
+    setStoredData('userLinks', links);
+    
+    // Reset form
+    utilityUI.linkUrlInput.value = '';
+    utilityUI.linkNameInput.value = '';
+    utilityUI.linkCategoryInput.value = '';
+    
+    renderLinks();
+
+    // Hide form and show button again
+    utilityUI.newLinkForm.classList.add('hidden');
+    utilityUI.showLinkFormBtn.classList.remove('hidden');
+};
+
+const deleteLink = (linkId) => {
+    let links = getStoredData('userLinks');
+    links = links.filter(link => link.id !== linkId);
+    setStoredData('userLinks', links);
+    renderLinks();
+};
+
+
+// --- Event Listeners ---
+if (utilityUI.fab) {
+    utilityUI.fab.addEventListener('click', () => {
+        utilityUI.popup.classList.toggle('hidden');
+    });
+
+    utilityUI.closeBtn.addEventListener('click', () => {
+        utilityUI.popup.classList.add('hidden');
+    });
+
+    utilityUI.notesTab.addEventListener('click', () => {
+        utilityUI.notesTab.classList.add('active');
+        utilityUI.linksTab.classList.remove('active');
+        utilityUI.notesContent.classList.remove('hidden');
+        utilityUI.linksContent.classList.add('hidden');
+    });
+
+    utilityUI.linksTab.addEventListener('click', () => {
+        utilityUI.linksTab.classList.add('active');
+        utilityUI.notesTab.classList.remove('active');
+        utilityUI.linksContent.classList.remove('hidden');
+        utilityUI.notesContent.classList.add('hidden');
+    });
+
+    utilityUI.addNoteBtn.addEventListener('click', addNote);
+    utilityUI.addLinkBtn.addEventListener('click', addLink);
+
+    utilityUI.showNoteFormBtn.addEventListener('click', () => {
+        utilityUI.newNoteForm.classList.remove('hidden');
+        utilityUI.showNoteFormBtn.classList.add('hidden');
+    });
+
+    utilityUI.showLinkFormBtn.addEventListener('click', () => {
+        utilityUI.newLinkForm.classList.remove('hidden');
+        utilityUI.showLinkFormBtn.classList.add('hidden');
+    });
+
+    // --- Link Category Input Logic ---
+    utilityUI.linkCategoryInput.addEventListener('focus', () => {
+        populateLinkCategoryOptions(utilityUI.linkCategoryInput.value);
+        setLinkCategoryOptionsVisible(true);
+    });
+
+    utilityUI.linkCategoryInput.addEventListener('input', () => {
+        populateLinkCategoryOptions(utilityUI.linkCategoryInput.value);
+        if (!utilityUI.linkCategoryOptions.classList.contains('visible')) {
+            setLinkCategoryOptionsVisible(true);
+        }
+    });
+
+    utilityUI.linkCategoryOptions.addEventListener('click', (e) => {
+        const option = e.target.closest('.custom-select-option');
+        if (option && option.dataset.value) {
+            utilityUI.linkCategoryInput.value = option.dataset.value;
+            setLinkCategoryOptionsVisible(false);
+        }
+    });
+
+    utilityUI.addNewCategoryBtn.addEventListener('click', () => {
+        const newCategory = utilityUI.linkCategoryInput.value.trim();
+        if (!newCategory) {
+            showMessage('Thông báo', 'Vui lòng nhập tên danh mục để thêm.');
+            return;
+        }
+        
+        const links = getStoredData('userLinks');
+        const categories = [...new Set(links.map(link => link.category).filter(Boolean))];
+        
+        if (categories.includes(newCategory)) {
+            showMessage('Thông báo', `Danh mục "${newCategory}" đã tồn tại.`);
+        } else {
+            // To "add" a category, we just need to ensure it's in the list for the next render.
+            // A simple way is to add a dummy link and then immediately remove it,
+            // or more cleanly, just add it to the list of categories for the dropdown.
+            // For now, we can just let the `addLink` function handle the creation of a new category.
+            showMessage('Thành công', `Danh mục "${newCategory}" sẽ được tạo khi bạn lưu link.`);
+        }
+        setLinkCategoryOptionsVisible(false);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.custom-select-container')) {
+            setLinkCategoryOptionsVisible(false);
+        }
+    });
+
+    utilityUI.notesList.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('.delete-note-btn');
+        if (deleteBtn) {
+            const noteId = deleteBtn.dataset.noteId;
+            showConfirmation('Xóa ghi chú?', 'Bạn có chắc chắn muốn xóa ghi chú này không?', () => deleteNote(noteId));
+        }
+    });
+
+    utilityUI.linksList.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('.delete-link-btn');
+        if (deleteBtn) {
+            const linkId = deleteBtn.dataset.linkId;
+            deleteLink(linkId);
+        }
+    });
+
+// Initial render on load
+document.addEventListener('DOMContentLoaded', () => {
+    renderNotes();
+    renderLinks();
+    // Add a general click listener to hide the link category options
+    document.addEventListener('click', (e) => {
+        if (!utilityUI.linkCategoryInput.contains(e.target) && !utilityUI.linkCategoryOptions.contains(e.target)) {
+            setLinkCategoryOptionsVisible(false);
+        }
+    });
+});
+}
