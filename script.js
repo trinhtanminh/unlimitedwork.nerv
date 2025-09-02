@@ -487,15 +487,49 @@ window.closeModal = (modalId) => {
 };
 
 const showMessage = (title, text, isError = false) => {
-    document.getElementById('message-title').textContent = title;
-    document.getElementById('message-text').innerHTML = text;
-    const iconEl = document.getElementById('message-icon');
+    const popup = document.getElementById('notification-popup');
+    const titleEl = document.getElementById('notification-title');
+    const textEl = document.getElementById('notification-text');
+    const iconEl = document.getElementById('notification-icon');
+    const closeBtn = document.getElementById('notification-close');
+
+    if (!popup || !titleEl || !textEl || !iconEl || !closeBtn) return;
+
+    // Set content
+    titleEl.textContent = title;
+    textEl.textContent = text;
+
+    // Set icon based on error state
     if (isError) {
-        iconEl.innerHTML = '<i class="fas fa-times-circle text-red-500"></i>';
+        iconEl.innerHTML = '<i class="fas fa-exclamation-triangle text-red-500"></i>';
     } else {
         iconEl.innerHTML = '<i class="fas fa-check-circle text-green-500"></i>';
     }
-    openModal('message-modal');
+
+    // Show popup
+    popup.classList.remove('hidden');
+
+    // Auto-dismiss after 3 seconds
+    const autoDismiss = setTimeout(() => {
+        hideNotification();
+    }, 3000);
+
+    // Handle manual close
+    const handleClose = () => {
+        clearTimeout(autoDismiss);
+        hideNotification();
+        closeBtn.removeEventListener('click', handleClose);
+    };
+
+    closeBtn.addEventListener('click', handleClose);
+
+    function hideNotification() {
+        popup.classList.add('fade-out');
+        setTimeout(() => {
+            popup.classList.add('hidden');
+            popup.classList.remove('fade-out');
+        }, 300);
+    }
 };
 
 const showChartDetail = (chartData, chartOptions, chartTitle) => {
@@ -2512,6 +2546,289 @@ function renderBurndownChart(weekTasks, weekDates) {
 }
 
 
+// --- Context Menu and Copy/Cut/Paste Logic ---
+
+// Global state for context menu and clipboard operations
+let contextMenuTarget = null;
+let clipboardTask = null;
+let isCutOperation = false;
+
+// Context menu UI elements
+const contextMenuUI = {
+    menu: document.getElementById('task-context-menu'),
+    editBtn: document.getElementById('context-edit-btn'),
+    copyBtn: document.getElementById('context-copy-btn'),
+    cutBtn: document.getElementById('context-cut-btn'),
+    deleteBtn: document.getElementById('context-delete-btn'),
+};
+
+// Show context menu at mouse position
+function showContextMenu(e, taskElement) {
+    e.preventDefault();
+    contextMenuTarget = taskElement;
+
+    const rect = contextMenuUI.menu.getBoundingClientRect();
+    let x = e.clientX;
+    let y = e.clientY;
+
+    // Adjust position if menu would go off screen
+    if (x + rect.width > window.innerWidth) {
+        x = window.innerWidth - rect.width - 10;
+    }
+    if (y + rect.height > window.innerHeight) {
+        y = window.innerHeight - rect.height - 10;
+    }
+
+    contextMenuUI.menu.style.left = `${x}px`;
+    contextMenuUI.menu.style.top = `${y}px`;
+    contextMenuUI.menu.classList.remove('hidden');
+}
+
+// Hide context menu
+function hideContextMenu() {
+    contextMenuUI.menu.classList.add('hidden');
+    contextMenuTarget = null;
+}
+
+// Context menu event handlers
+function handleContextMenuEdit() {
+    if (contextMenuTarget) {
+        const taskId = contextMenuTarget.dataset.taskId;
+        window.openTaskModalWithId(taskId);
+        hideContextMenu();
+    }
+}
+
+function handleContextMenuCopy() {
+    if (contextMenuTarget) {
+        const taskId = contextMenuTarget.dataset.taskId;
+        const task = cachedTasks.find(t => t.id === taskId);
+        if (task) {
+            clipboardTask = { ...task };
+            isCutOperation = false;
+            showMessage('Thành công', 'Đã sao chép công việc vào bộ nhớ tạm.');
+        }
+        hideContextMenu();
+    }
+}
+
+function handleContextMenuCut() {
+    if (contextMenuTarget) {
+        const taskId = contextMenuTarget.dataset.taskId;
+        const task = cachedTasks.find(t => t.id === taskId);
+        if (task) {
+            clipboardTask = { ...task };
+            isCutOperation = true;
+            showMessage('Thông báo', 'Đã cắt công việc. Chọn vị trí mới để dán.');
+        }
+        hideContextMenu();
+    }
+}
+
+function handleContextMenuDelete() {
+    if (contextMenuTarget) {
+        const taskId = contextMenuTarget.dataset.taskId;
+        const task = cachedTasks.find(t => t.id === taskId);
+        if (task) {
+            showConfirmation('Xác nhận xóa', `Bạn có chắc chắn muốn xóa công việc "${task.partner || 'N/A'}" không?`, async () => {
+                try {
+                    await deleteDoc(doc(db, "groups", activeGroupId, "plans", activePlanId, "tasks", taskId));
+                    showMessage('Thành công', 'Đã xóa công việc.');
+                } catch (error) {
+                    console.error("Error deleting task:", error);
+                    showMessage('Lỗi', 'Không thể xóa công việc.', true);
+                }
+            });
+        }
+        hideContextMenu();
+    }
+}
+
+// Paste functionality
+async function pasteTask(targetCell) {
+    if (!clipboardTask || !targetCell) return;
+
+    const newDate = targetCell.dataset.date;
+    const newTime = targetCell.dataset.time;
+
+    try {
+        const taskCollectionRef = collection(db, "groups", activeGroupId, "plans", activePlanId, "tasks");
+
+        if (isCutOperation) {
+            // Move operation - update existing task
+            const taskRef = doc(taskCollectionRef, clipboardTask.id);
+            await updateDoc(taskRef, {
+                date: newDate,
+                time: newTime,
+                updatedAt: Timestamp.now()
+            });
+            showMessage('Thành công', 'Đã di chuyển công việc.');
+            clipboardTask = null;
+            isCutOperation = false;
+        } else {
+            // Copy operation - create new task
+            const newTaskData = {
+                ...clipboardTask,
+                date: newDate,
+                time: newTime,
+                createdAt: Timestamp.now(),
+                updatedAt: Timestamp.now()
+            };
+            delete newTaskData.id;
+            await addDoc(taskCollectionRef, newTaskData);
+            showMessage('Thành công', 'Đã sao chép công việc.');
+        }
+    } catch (err) {
+        console.error("Paste error:", err);
+        showMessage("Lỗi", "Không thể dán công việc.", true);
+    }
+}
+
+// Keyboard shortcuts
+function handleKeyboardShortcuts(e) {
+    // Only handle shortcuts when not typing in input fields
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.contentEditable === 'true') {
+        return;
+    }
+
+    const isCtrl = e.ctrlKey || e.metaKey; // metaKey for Cmd on Mac
+
+    if (isCtrl) {
+        switch (e.key.toLowerCase()) {
+            case 'c':
+                e.preventDefault();
+                // Find the currently focused or last right-clicked task
+                const focusedTask = document.activeElement?.closest('.task-card') || contextMenuTarget;
+                if (focusedTask) {
+                    contextMenuTarget = focusedTask;
+                    handleContextMenuCopy();
+                }
+                break;
+            case 'x':
+                e.preventDefault();
+                const focusedTaskCut = document.activeElement?.closest('.task-card') || contextMenuTarget;
+                if (focusedTaskCut) {
+                    contextMenuTarget = focusedTaskCut;
+                    handleContextMenuCut();
+                }
+                break;
+            case 'v':
+                e.preventDefault();
+                if (clipboardTask) {
+                    // Find the currently focused cell or last right-clicked cell
+                    const focusedCell = document.activeElement?.closest('.grid-cell');
+                    if (focusedCell) {
+                        pasteTask(focusedCell);
+                    } else {
+                        showMessage('Thông báo', 'Vui lòng chọn vị trí để dán công việc.');
+                    }
+                }
+                break;
+        }
+    }
+}
+
+// Show paste context menu for empty cells
+function showPasteContextMenu(e, gridCell) {
+    e.preventDefault();
+
+    // Create a simple paste menu
+    const pasteMenu = document.createElement('div');
+    pasteMenu.id = 'paste-context-menu';
+    pasteMenu.className = 'fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg py-2 min-w-[120px]';
+    pasteMenu.innerHTML = `
+        <button class="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm" onclick="handlePasteFromContextMenu('${gridCell.dataset.date}', '${gridCell.dataset.time}')">
+            <i class="fas fa-paste mr-2"></i>Dán công việc
+        </button>
+    `;
+
+    // Position the menu
+    const rect = pasteMenu.getBoundingClientRect();
+    let x = e.clientX;
+    let y = e.clientY;
+
+    // Adjust position if menu would go off screen
+    if (x + rect.width > window.innerWidth) {
+        x = window.innerWidth - rect.width - 10;
+    }
+    if (y + rect.height > window.innerHeight) {
+        y = window.innerHeight - rect.height - 10;
+    }
+
+    pasteMenu.style.left = `${x}px`;
+    pasteMenu.style.top = `${y}px`;
+    document.body.appendChild(pasteMenu);
+
+    // Remove menu when clicking elsewhere
+    const removeMenu = (e) => {
+        if (!pasteMenu.contains(e.target)) {
+            pasteMenu.remove();
+            document.removeEventListener('click', removeMenu);
+        }
+    };
+
+    // Delay adding the listener to prevent immediate removal
+    setTimeout(() => {
+        document.addEventListener('click', removeMenu);
+    }, 10);
+}
+
+// Handle paste from context menu
+async function handlePasteFromContextMenu(date, time) {
+    if (!clipboardTask) return;
+
+    const targetCell = document.querySelector(`.grid-cell[data-date="${date}"][data-time="${time}"]`);
+    if (targetCell) {
+        await pasteTask(targetCell);
+        // Remove the paste menu after successful paste
+        const pasteMenu = document.getElementById('paste-context-menu');
+        if (pasteMenu) {
+            pasteMenu.remove();
+        }
+    }
+}
+
+// Expose to global scope for onclick handlers
+window.handlePasteFromContextMenu = handlePasteFromContextMenu;
+
+// Initialize context menu functionality
+function initContextMenu() {
+    // Context menu button event listeners
+    contextMenuUI.editBtn.addEventListener('click', handleContextMenuEdit);
+    contextMenuUI.copyBtn.addEventListener('click', handleContextMenuCopy);
+    contextMenuUI.cutBtn.addEventListener('click', handleContextMenuCut);
+    if (contextMenuUI.deleteBtn) {
+        contextMenuUI.deleteBtn.addEventListener('click', handleContextMenuDelete);
+    }
+
+    // Hide context menu when clicking elsewhere
+    document.addEventListener('click', (e) => {
+        if (!contextMenuUI.menu.contains(e.target)) {
+            hideContextMenu();
+        }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', handleKeyboardShortcuts);
+
+// Right-click on task cards
+document.addEventListener('contextmenu', (e) => {
+    const taskCard = e.target.closest('.task-card');
+    if (taskCard) {
+        // Show context menu for task cards
+        showContextMenu(e, taskCard);
+    } else {
+        // If right-clicking on empty cell and we have something in clipboard, show paste option in context menu
+        const gridCell = e.target.closest('.grid-cell');
+        if (gridCell && clipboardTask) {
+            e.preventDefault();
+            // Show a simple paste menu for empty cells
+            showPasteContextMenu(e, gridCell);
+        }
+    }
+});
+}
+
 // --- Drag and Drop Logic ---
 function addDragDropListeners() {
     const container = document.getElementById('schedule-container');
@@ -2543,7 +2860,7 @@ function addDragDropListeners() {
             cell.classList.add('drag-over');
         }
     });
-    
+
     container.addEventListener('dragleave', (e) => {
          const cell = e.target.closest('.grid-cell');
          if (cell && !cell.contains(e.relatedTarget)) {
@@ -4048,6 +4365,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window.onload = () => {
     handleRouting();
     handleResize(); // Initial check
+    initContextMenu(); // Initialize context menu functionality
 };
 
 // ======================================================================
