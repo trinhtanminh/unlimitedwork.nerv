@@ -129,7 +129,7 @@ const userColorUtil = {
 };
 
 
-// --- UI Elements ---
+    // --- UI Elements ---
 const ui = {
     // Screens
     loadingScreen: document.getElementById('loading-screen'),
@@ -137,7 +137,7 @@ const ui = {
     appScreen: document.getElementById('app-screen'),
     adminScreen: document.getElementById('admin-screen'),
     publicViewScreen: document.getElementById('public-view-screen'),
-    
+
     // Auth
     authForm: document.getElementById('auth-form'),
     authError: document.getElementById('auth-error'),
@@ -146,7 +146,7 @@ const ui = {
     authToggleLink: document.getElementById('auth-toggle-link'),
     authSubmitBtn: document.getElementById('auth-submit-btn'),
     nameFieldContainer: document.getElementById('name-field-container'),
-    
+
     // User App
     userAvatar: document.getElementById('user-avatar'),
     profileAvatarLarge: document.getElementById('profile-avatar-large'),
@@ -210,7 +210,7 @@ const ui = {
     publicHeaderTitle: document.getElementById('public-header-title'),
     publicStatsContainer: document.getElementById('public-stats-container'),
     publicMainContent: document.getElementById('public-main-content'),
-    
+
     // Admin App
     adminLogoutBtn: document.getElementById('admin-logout-btn'),
     adminStatsContainer: document.getElementById('admin-stats-container'),
@@ -337,6 +337,32 @@ const ui = {
 
     // Content Writer Assistant
     contentWriterBtn: document.getElementById('content-writer-btn'),
+
+    // Utility Popup
+    utilityFab: document.getElementById('utility-fab'),
+    utilityPopup: document.getElementById('utility-popup'),
+    closeUtilityPopupBtn: document.getElementById('close-utility-popup-btn'),
+    utilityTabNotes: document.getElementById('utility-tab-notes'),
+    utilityTabLinks: document.getElementById('utility-tab-links'),
+    utilityNotesContent: document.getElementById('utility-notes-content'),
+    utilityLinksContent: document.getElementById('utility-links-content'),
+    // Notes UI
+    showNoteFormBtn: document.getElementById('show-note-form-btn'),
+    newNoteForm: document.getElementById('new-note-form'),
+    noteTitleInput: document.getElementById('note-title-input'),
+    noteInput: document.getElementById('note-input'),
+    addNoteBtn: document.getElementById('add-note-btn'),
+    notesList: document.getElementById('notes-list'),
+    // Links UI
+    showLinkFormBtn: document.getElementById('show-link-form-btn'),
+    newLinkForm: document.getElementById('new-link-form'),
+    linkUrlInput: document.getElementById('link-url-input'),
+    linkNameInput: document.getElementById('link-name-input'),
+    linkCategoryInput: document.getElementById('link-category-input'),
+    linkCategoryOptions: document.getElementById('link-category-options'),
+    addNewCategoryBtn: document.getElementById('add-new-category-btn'),
+    addLinkBtn: document.getElementById('add-link-btn'),
+    linksList: document.getElementById('links-list'),
 };
 
 // --- NEW: Centralized Header Button Management ---
@@ -4362,12 +4388,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-window.onload = () => {
-    handleRouting();
-    handleResize(); // Initial check
-    initContextMenu(); // Initialize context menu functionality
-};
-
 // ======================================================================
 // ===================== UTILITY POPUP SECTION ==========================
 // ======================================================================
@@ -4424,10 +4444,23 @@ const renderNotes = () => {
         return;
     }
     utilityUI.notesList.innerHTML = notes.sort((a, b) => b.createdAt - a.createdAt).map(note => `
-        <div class="note-item">
-            <p class="note-content">${note.content}</p>
+        <div class="note-item" data-note-id="${note.id}">
+            ${note.title && note.title !== 'Ghi chú không tiêu đề' ? `<h4 class="note-title font-semibold text-gray-800 mb-2">${note.title}</h4>` : ''}
+            <div class="note-content-wrapper">
+                <p class="note-content" title="Nhấp đúp để chỉnh sửa" ondblclick="editNote('${note.id}')">${note.content}</p>
+                <div class="note-edit-container hidden">
+                    <input type="text" class="note-edit-title-input w-full bg-white border border-gray-300 rounded p-2 text-sm mb-2" value="${note.title || ''}" placeholder="Tiêu đề ghi chú">
+                    <textarea class="note-edit-input w-full bg-white border border-gray-300 rounded p-2 text-sm resize-none" rows="4">${note.content}</textarea>
+                    <div class="flex justify-end gap-2 mt-2">
+                        <button class="cancel-edit-btn glass-btn text-sm" data-note-id="${note.id}">Hủy</button>
+                        <button class="save-edit-btn glass-btn primary text-sm" data-note-id="${note.id}">Lưu</button>
+                    </div>
+                </div>
+            </div>
             <div class="note-actions">
                 <span class="text-xs text-gray-400 mr-2">${new Date(note.createdAt).toLocaleString('vi-VN')}</span>
+                <button data-note-id="${note.id}" class="edit-note-btn" title="Chỉnh sửa ghi chú"><i class="fas fa-edit"></i></button>
+                <button data-note-id="${note.id}" class="copy-note-btn" title="Sao chép ghi chú"><i class="far fa-copy"></i></button>
                 <button data-note-id="${note.id}" class="delete-note-btn"><i class="fas fa-trash-alt"></i></button>
             </div>
         </div>
@@ -4435,22 +4468,54 @@ const renderNotes = () => {
 };
 
 const addNote = () => {
-    const content = utilityUI.noteInput.value.trim();
+    // Get elements dynamically to avoid undefined errors
+    const noteTitleInput = document.getElementById('note-title-input');
+    const noteInput = document.getElementById('note-input');
+    const newNoteForm = document.getElementById('new-note-form');
+    const showNoteFormBtn = document.getElementById('show-note-form-btn');
+
+    // Check if elements exist before accessing them
+    if (!noteTitleInput || !noteInput) {
+        console.error('Note input elements not found');
+        return;
+    }
+
+    const title = noteTitleInput.value.trim();
+    const content = noteInput.value.trim();
     if (!content) return;
 
     const notes = getStoredData('userNotes');
     const newNote = {
         id: `note_${Date.now()}`,
+        title: title || 'Ghi chú không tiêu đề',
         content: content,
         createdAt: Date.now(),
     };
     notes.push(newNote);
     setStoredData('userNotes', notes);
-    utilityUI.noteInput.value = '';
+    noteTitleInput.value = '';
+    noteInput.value = '';
     renderNotes();
     // Hide form and show button again
-    utilityUI.newNoteForm.classList.add('hidden');
-    utilityUI.showNoteFormBtn.classList.remove('hidden');
+    if (newNoteForm && showNoteFormBtn) {
+        newNoteForm.classList.add('hidden');
+        showNoteFormBtn.classList.remove('hidden');
+    }
+};
+
+const copyNote = (noteId) => {
+    const notes = getStoredData('userNotes');
+    const note = notes.find(n => n.id === noteId);
+    if (note) {
+        // Only copy the content, not the title
+        const contentToCopy = note.content;
+        navigator.clipboard.writeText(contentToCopy).then(() => {
+            showMessage('Thành công', 'Đã sao chép nội dung ghi chú vào bộ nhớ tạm.');
+        }).catch(err => {
+            console.error('Failed to copy note:', err);
+            showMessage('Lỗi', 'Không thể sao chép ghi chú.', true);
+        });
+    }
 };
 
 const deleteNote = (noteId) => {
@@ -4458,6 +4523,68 @@ const deleteNote = (noteId) => {
     notes = notes.filter(note => note.id !== noteId);
     setStoredData('userNotes', notes);
     renderNotes();
+};
+
+const editNote = (noteId) => {
+    const noteItem = document.querySelector(`.note-item[data-note-id="${noteId}"]`);
+    if (!noteItem) return;
+
+    const contentWrapper = noteItem.querySelector('.note-content-wrapper');
+    const contentElement = noteItem.querySelector('.note-content');
+    const editContainer = noteItem.querySelector('.note-edit-container');
+    const editTitleInput = noteItem.querySelector('.note-edit-title-input');
+    const editInput = noteItem.querySelector('.note-edit-input');
+
+    // Set values
+    const notes = getStoredData('userNotes');
+    const note = notes.find(n => n.id === noteId);
+    if (note) {
+        editTitleInput.value = note.title || '';
+        editInput.value = note.content;
+    }
+
+    // Show edit mode
+    contentElement.classList.add('hidden');
+    editContainer.classList.remove('hidden');
+    editInput.focus();
+};
+
+const saveNoteEdit = (noteId) => {
+    const noteItem = document.querySelector(`.note-item[data-note-id="${noteId}"]`);
+    if (!noteItem) return;
+
+    const editTitleInput = noteItem.querySelector('.note-edit-title-input');
+    const editInput = noteItem.querySelector('.note-edit-input');
+    const newTitle = editTitleInput.value.trim();
+    const newContent = editInput.value.trim();
+
+    if (!newContent) {
+        showMessage('Lỗi', 'Nội dung ghi chú không được để trống.', true);
+        return;
+    }
+
+    // Update in localStorage
+    let notes = getStoredData('userNotes');
+    const noteIndex = notes.findIndex(note => note.id === noteId);
+    if (noteIndex > -1) {
+        notes[noteIndex].title = newTitle || 'Ghi chú không tiêu đề';
+        notes[noteIndex].content = newContent;
+        setStoredData('userNotes', notes);
+        renderNotes(); // Re-render to show updated content
+        showMessage('Thành công', 'Đã cập nhật ghi chú.');
+    }
+};
+
+const cancelNoteEdit = (noteId) => {
+    const noteItem = document.querySelector(`.note-item[data-note-id="${noteId}"]`);
+    if (!noteItem) return;
+
+    const contentElement = noteItem.querySelector('.note-content');
+    const editContainer = noteItem.querySelector('.note-edit-container');
+
+    // Hide edit mode
+    editContainer.classList.add('hidden');
+    contentElement.classList.remove('hidden');
 };
 
 // --- Links Logic ---
@@ -4648,10 +4775,39 @@ if (utilityUI.fab) {
     });
 
     utilityUI.notesList.addEventListener('click', (e) => {
+        const copyBtn = e.target.closest('.copy-note-btn');
+        if (copyBtn) {
+            const noteId = copyBtn.dataset.noteId;
+            copyNote(noteId);
+            return;
+        }
+
         const deleteBtn = e.target.closest('.delete-note-btn');
         if (deleteBtn) {
             const noteId = deleteBtn.dataset.noteId;
             showConfirmation('Xóa ghi chú?', 'Bạn có chắc chắn muốn xóa ghi chú này không?', () => deleteNote(noteId));
+            return;
+        }
+
+        const editBtn = e.target.closest('.edit-note-btn');
+        if (editBtn) {
+            const noteId = editBtn.dataset.noteId;
+            editNote(noteId);
+            return;
+        }
+
+        const saveBtn = e.target.closest('.save-edit-btn');
+        if (saveBtn) {
+            const noteId = saveBtn.dataset.noteId;
+            saveNoteEdit(noteId);
+            return;
+        }
+
+        const cancelBtn = e.target.closest('.cancel-edit-btn');
+        if (cancelBtn) {
+            const noteId = cancelBtn.dataset.noteId;
+            cancelNoteEdit(noteId);
+            return;
         }
     });
 
@@ -4694,3 +4850,10 @@ if (utilityUI.linksContent) {
     });
 }
 }
+
+// --- App Entry Point ---
+document.addEventListener('DOMContentLoaded', () => {
+    handleRouting();
+    handleResize(); // Initial check
+    initContextMenu(); // Initialize context menu functionality
+});
