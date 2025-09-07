@@ -1,3 +1,4 @@
+
 // Configuration for expected column names in Excel/CSV files.
 const COLUMN_CONFIG = {
     LABEL: ['Nhãn tùy chỉnh'],
@@ -21,18 +22,52 @@ let summaryDataForExport = [];
 let processedReportData = {}; // To store processed data for drill-down
 let isReportInitialized = false;
 
+
+// =================== HELPERS ===================
+
 /**
  * Finds the first matching column name from a list of aliases.
- * @param {object} headerRow - The first row of the data, representing headers.
+ * Accepts either a single row object or an array of rows.
+ * We aggregate keys across the whole dataset to avoid missing columns when
+ * the first row has an empty cell (so the key is not materialized by sheet_to_json).
+ *
+ * @param {object|object[]} headerOrRows - First row object OR entire data array.
  * @param {string[]} aliases - A list of possible names for the column.
  * @returns {string|null} The found column name or null.
  */
-function findColumnName(headerRow, aliases) {
+function findColumnName(headerOrRows, aliases) {
+    const keySet = new Set();
+
+    // If array -> collect keys from all rows; if object -> collect from that one
+    if (Array.isArray(headerOrRows)) {
+        headerOrRows.forEach(row => {
+            if (row && typeof row === 'object') {
+                Object.keys(row).forEach(k => keySet.add(String(k).trim()));
+            }
+        });
+    } else if (headerOrRows && typeof headerOrRows === 'object') {
+        Object.keys(headerOrRows).forEach(k => keySet.add(String(k).trim()));
+    }
+
+    // Try aliases in order
     for (const alias of aliases) {
-        if (headerRow.hasOwnProperty(alias)) return alias;
+        const a = String(alias).trim();
+        if (keySet.has(a)) return alias;
     }
     return null;
 }
+
+/**
+ * Safely parse possible currency/text to number.
+ */
+function toNumberSafe(v) {
+    const s = String(v ?? '0').replace(/[^0-9.-]+/g, '');
+    const n = Number(s);
+    return Number.isFinite(n) ? n : 0;
+}
+
+
+// =================== UI BUILDERS ===================
 
 /**
  * Creates the HTML structure for a new page upload block.
@@ -105,8 +140,10 @@ function setupUploadArea(uploadArea) {
     });
 }
 
+
 /**
  * Handles the file reading and parsing process.
+ * (Fix #1 applied here: use defval:"" so empty cells still produce keys)
  * @param {File} file - The file to be processed.
  * @param {HTMLElement} uploadArea - The corresponding upload area element.
  */
@@ -126,8 +163,10 @@ function handleFile(file, uploadArea) {
             const workbook = XLSX.read(e.target.result, { type: 'binary' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
-            
+
+            // FIX #1: ensure empty cells still generate keys
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" });
+
             if (type === 'post') pageDataSets[id].postFile = jsonData;
             else pageDataSets[id].revenueFile = jsonData;
 
@@ -160,43 +199,47 @@ function addNewPage(container) {
     newBlock.querySelectorAll('.upload-area').forEach(setupUploadArea);
 }
 
+
+// =================== CORE PROCESSING ===================
+
 /**
  * Processes a single data file (either post count or revenue).
- * @param {object[]} data - The array of data from the parsed file.
- * @param {string} start - The start date for filtering.
- * @param {string} end - The end date for filtering.
- * @param {object} combinedData - The object to aggregate results into.
- * @param {string} type - The type of file ('postCount' or 'revenue').
- * @param {string} pageName - The name of the page this file belongs to.
+ * (Fix #2 applied here: find columns across entire dataset, not just first row)
+ * @param {object[]} data
+ * @param {string} start
+ * @param {string} end
+ * @param {object} combinedData
+ * @param {string} type - 'postCount' | 'revenue'
+ * @param {string} pageName
  */
 function processFile(data, start, end, combinedData, type, pageName) {
     if (!data || data.length === 0) {
         console.warn(`Một tệp ${type} cho ${pageName} rỗng hoặc không hợp lệ đã bị bỏ qua.`);
         return;
     }
-    const headerRow = data[0];
     const startDate = dayjs(start);
     const endDate = dayjs(end);
     const isPostFile = type === 'postCount';
 
-    const colLabel = findColumnName(headerRow, COLUMN_CONFIG.LABEL);
-    const colPageName = findColumnName(headerRow, COLUMN_CONFIG.PAGE_NAME);
-    const colPostDate = isPostFile ? findColumnName(headerRow, COLUMN_CONFIG.POST_DATE) : null;
-    const colDailyDate = !isPostFile ? findColumnName(headerRow, COLUMN_CONFIG.DAILY_DATE) : null;
-    const colViews3s = !isPostFile ? findColumnName(headerRow, COLUMN_CONFIG.VIEWS_3S) : null;
-    const colEarnings = !isPostFile ? findColumnName(headerRow, COLUMN_CONFIG.EARNINGS) : null;
+    // FIX #2: pass the entire dataset to findColumnName
+    const colLabel     = findColumnName(data, COLUMN_CONFIG.LABEL);
+    const colPageName  = findColumnName(data, COLUMN_CONFIG.PAGE_NAME);
+    const colPostDate  = isPostFile ? findColumnName(data, COLUMN_CONFIG.POST_DATE)   : null;
+    const colDailyDate = !isPostFile ? findColumnName(data, COLUMN_CONFIG.DAILY_DATE) : null;
+    const colViews3s   = !isPostFile ? findColumnName(data, COLUMN_CONFIG.VIEWS_3S)   : null;
+    const colEarnings  = !isPostFile ? findColumnName(data, COLUMN_CONFIG.EARNINGS)   : null;
 
-    const requiredColsFound = isPostFile ?
-        (colLabel && colPostDate && colPageName) :
-        (colLabel && colDailyDate && colViews3s && colPageName);
+    const requiredColsFound = isPostFile
+        ? (colLabel && colPostDate && colPageName)
+        : (colLabel && colDailyDate && colViews3s && colPageName);
 
     if (!requiredColsFound) {
-         const missing = [];
-         if (!colLabel) missing.push(`'${COLUMN_CONFIG.LABEL[0]}'`);
-         if (!colPageName) missing.push(`'${COLUMN_CONFIG.PAGE_NAME[0]}'`);
-         if (isPostFile && !colPostDate) missing.push(`'${COLUMN_CONFIG.POST_DATE[0]}'`);
-         if (!isPostFile && !colDailyDate) missing.push(`'${COLUMN_CONFIG.DAILY_DATE[0]}'`);
-         if (!isPostFile && !colViews3s) missing.push(`'${COLUMN_CONFIG.VIEWS_3S[0]}'`);
+        const missing = [];
+        if (!colLabel)    missing.push(`'${COLUMN_CONFIG.LABEL[0]}'`);
+        if (!colPageName) missing.push(`'${COLUMN_CONFIG.PAGE_NAME[0]}'`);
+        if (isPostFile && !colPostDate)    missing.push(`'${COLUMN_CONFIG.POST_DATE[0]}'`);
+        if (!isPostFile && !colDailyDate)  missing.push(`'${COLUMN_CONFIG.DAILY_DATE[0]}'`);
+        if (!isPostFile && !colViews3s)    missing.push(`'${COLUMN_CONFIG.VIEWS_3S[0]}'`);
         throw new Error(`Tệp cho ${pageName} thiếu cột: ${missing.join(', ')}`);
     }
     
@@ -230,10 +273,9 @@ function processFile(data, start, end, combinedData, type, pageName) {
                 pageData.postCount += 1;
                 pageData.sourcePostRows.push(row);
             } else {
-                pageData.views += Number(row[colViews3s]) || 0;
+                pageData.views += toNumberSafe(row[colViews3s]);
                 if (colEarnings) {
-                    const earningsValue = String(row[colEarnings] || '0').replace(/[^0-9.-]+/g, "");
-                    pageData.usd += Number(earningsValue) || 0;
+                    pageData.usd += toNumberSafe(row[colEarnings]);
                 }
                 pageData.sourceRevenueRows.push(row);
             }
@@ -241,11 +283,12 @@ function processFile(data, start, end, combinedData, type, pageName) {
     });
 }
 
+
 /**
  * Renders the main results table.
- * @param {object[]} data - The processed and sorted report data.
- * @param {string} start - The start date of the report.
- * @param {string} end - The end date of the report.
+ * @param {object[]} data
+ * @param {string} start
+ * @param {string} end
  */
 function renderResultTable(data, start, end) {
     const resultTable = document.getElementById('result-table');
@@ -255,7 +298,6 @@ function renderResultTable(data, start, end) {
     const rangeHeader = `${startFormatted} - ${endFormatted}`;
     reportTitle.textContent = `BÁO CÁO SỐ WEEKLY TUẦN ${rangeHeader}`;
 
-    // The new CSS handles the styling for thead, so we can simplify the classes here.
     let tableHTML = `
         <thead>
             <tr>
@@ -333,13 +375,13 @@ function renderResultTable(data, start, end) {
     resultTable.innerHTML = tableHTML;
 }
 
+
 /**
  * Renders the summary table.
  * @param {object[]} data - The data for the summary table.
  */
 function renderSummaryTable(data) {
     const summaryTable = document.getElementById('summary-table');
-    // The new CSS handles the styling for thead, so I can simplify the classes here.
     let tableHTML = `
         <thead>
             <tr>
@@ -365,6 +407,7 @@ function renderSummaryTable(data) {
     summaryTable.innerHTML = tableHTML;
 }
 
+
 /**
  * Processes and renders the summary section.
  * @param {object[]} reportData - The main report data.
@@ -387,6 +430,7 @@ function processAndRenderSummary(reportData) {
     renderSummaryTable(summaryDataForExport);
 }
 
+
 /**
  * Exports the summary data to an Excel file.
  */
@@ -401,6 +445,7 @@ function exportSummaryToExcel() {
     XLSX.writeFile(wb, "Bao_cao_tong_ket.xlsx");
 }
 
+
 /**
  * Exports the weekly report data to an Excel file.
  */
@@ -414,6 +459,7 @@ function exportWeeklyReportToExcel() {
     XLSX.writeFile(wb, "Bao_cao_tuan.xlsx");
 }
 
+
 /**
  * Main function to generate the report.
  */
@@ -421,14 +467,10 @@ async function generateReport() {
     // Use elements from the modal
     const startDateInput = document.getElementById('report-start-date');
     const endDateInput = document.getElementById('report-end-date');
-    // Note: We can add an error message element inside the modal if needed
-    const errorMessage = document.getElementById('error-message'); // This is the old one, might need a new one for the modal
+    const errorMessage = document.getElementById('error-message'); // Existing placeholder
     const allReportsContainer = document.getElementById('all-reports-container');
     const noReportPlaceholder = document.getElementById('no-report-placeholder');
     const processButton = document.getElementById('process-report-button');
-    // We can add a loader to the modal button as well
-    // const loader = document.getElementById('loader'); 
-    // const buttonText = document.getElementById('button-text');
 
     const startDate = startDateInput.value;
     const endDate = endDateInput.value;
@@ -438,61 +480,56 @@ async function generateReport() {
         errorMessage.textContent = 'Vui lòng chọn ngày và tải lên đủ 2 tệp cho ít nhất một Page.';
         return;
     }
-    errorMessage.textContent = ''; // Clear main page error
+    errorMessage.textContent = '';
     processButton.disabled = true;
     processButton.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i> Đang xử lý...`;
     allReportsContainer.classList.add('hidden');
     allReportsContainer.classList.remove('flex');
     noReportPlaceholder.classList.add('hidden');
 
-
     await new Promise(resolve => setTimeout(resolve, 50));
 
     try {
         const combinedData = {};
         for (const [id, dataSet] of validDataSets) {
-            processFile(dataSet.postFile, startDate, endDate, combinedData, 'postCount', dataSet.pageName);
-            processFile(dataSet.revenueFile, startDate, endDate, combinedData, 'revenue', dataSet.pageName);
+            processFile(dataSet.postFile,    startDate, endDate, combinedData, 'postCount', dataSet.pageName);
+            processFile(dataSet.revenueFile, startDate, endDate, combinedData, 'revenue',   dataSet.pageName);
         }
 
         // Calculate in-range metrics (views/USD for videos posted within the date range)
         for (const partner in combinedData) {
             for (const page in combinedData[partner].pages) {
                 const pageData = combinedData[partner].pages[page];
-                
-                const headerPost = pageData.sourcePostRows.length > 0 ? pageData.sourcePostRows[0] : {};
-                const colLabelPost = findColumnName(headerPost, COLUMN_CONFIG.LABEL);
 
-                const headerRevenue = pageData.sourceRevenueRows.length > 0 ? pageData.sourceRevenueRows[0] : {};
-                const colLabelRevenue = findColumnName(headerRevenue, COLUMN_CONFIG.LABEL);
-                const colViews3s = findColumnName(headerRevenue, COLUMN_CONFIG.VIEWS_3S);
-                const colEarnings = findColumnName(headerRevenue, COLUMN_CONFIG.EARNINGS);
+                // FIX #2: find columns over the entire arrays, not just first row
+                const colLabelPost  = findColumnName(pageData.sourcePostRows,    COLUMN_CONFIG.LABEL);
+                const colLabelRev   = findColumnName(pageData.sourceRevenueRows, COLUMN_CONFIG.LABEL);
+                const colViews3sRev = findColumnName(pageData.sourceRevenueRows, COLUMN_CONFIG.VIEWS_3S);
+                const colEarnRev    = findColumnName(pageData.sourceRevenueRows, COLUMN_CONFIG.EARNINGS);
 
-                if (!colLabelPost || !colLabelRevenue || !colViews3s) {
+                if (!colLabelPost || !colLabelRev || !colViews3sRev) {
                     continue; // Skip if essential columns for this calculation are missing
                 }
 
                 // Get labels of posts that were published within the selected date range.
-                // `sourcePostRows` is already filtered by post date in `processFile`.
                 const inRangePostLabels = new Set(pageData.sourcePostRows.map(row => row[colLabelPost]));
 
                 // Sum views and USD from revenue rows that correspond to the in-range posts.
                 let viewsInRange = 0;
                 let usdInRange = 0;
                 pageData.sourceRevenueRows.forEach(row => {
-                    if (inRangePostLabels.has(row[colLabelRevenue])) {
-                        viewsInRange += Number(row[colViews3s]) || 0;
-                        if (colEarnings) {
-                            const earningsValue = String(row[colEarnings] || '0').replace(/[^0-9.-]+/g, "");
-                            usdInRange += Number(earningsValue) || 0;
+                    if (inRangePostLabels.has(row[colLabelRev])) {
+                        viewsInRange += toNumberSafe(row[colViews3sRev]);
+                        if (colEarnRev) {
+                            usdInRange += toNumberSafe(row[colEarnRev]);
                         }
                     }
                 });
+
                 pageData.viewsInRange = viewsInRange;
                 pageData.usdInRange = usdInRange;
             }
         }
-
 
         for (const partner in combinedData) {
             let totalPosts = 0, totalViews = 0, totalUsd = 0;
@@ -517,19 +554,22 @@ async function generateReport() {
         renderResultTable(reportData, startDate, endDate);
         processAndRenderSummary(reportData);
         allReportsContainer.classList.remove('hidden');
-        allReportsContainer.classList.add('flex'); // Use flex to show it correctly
+        allReportsContainer.classList.add('flex');
         noReportPlaceholder.classList.add('hidden');
         closeModal('report-creation-modal'); // Close modal on success
 
     } catch (error) {
         console.error(error);
-        errorMessage.textContent = `Lỗi: ${error.message}`; // Show error on main page
+        errorMessage.textContent = `Lỗi: ${error.message}`;
         noReportPlaceholder.classList.remove('hidden');
     } finally {
         processButton.disabled = false;
         processButton.innerHTML = 'Xử lý và Tạo Báo Cáo';
     }
 }
+
+
+// =================== INIT & EVENTS ===================
 
 /**
  * Initializes modal-specific event listeners.
@@ -584,7 +624,6 @@ function initializeModalEventListeners() {
     }
 }
 
-
 /**
  * Initializes all event listeners for the report tool.
  */
@@ -614,27 +653,17 @@ function initializeEventListeners() {
 }
 
 /**
- * Sets up the initial state of the report tool UI.
- */
-function setupInitialUI() {
-    // No longer needed as the modal handles the initial block
-}
-
-/**
  * Main initialization function for the report tool.
  */
 function initializeReportTool() {
     if (isReportInitialized) return;
 
-    // setupInitialUI(); // Deprecated
     initializeEventListeners();
-    initializeModalEventListeners(); // Initialize new modal listeners
-    
+    initializeModalEventListeners();
     isReportInitialized = true;
 }
 
 // Use a MutationObserver to initialize the tool when the container becomes visible.
-// This approach is robust and avoids re-initialization or state loss.
 const reportContainer = document.getElementById('facebook-mcv-report-content');
 if (reportContainer) {
     const observer = new MutationObserver((mutationsList) => {
@@ -647,9 +676,11 @@ if (reportContainer) {
             }
         }
     });
-
     observer.observe(reportContainer, { attributes: true });
 }
+
+
+// =================== DRILL-DOWN MODAL ===================
 
 /**
  * Shows a modal with the detailed source data for a clicked metric.
@@ -677,14 +708,14 @@ function showDataDetails(e) {
         sourceRows = pageData.sourceRevenueRows;
         metricName = metric === 'views' ? 'Total view' : 'USD';
     } else if (metric === 'viewsInRange' || metric === 'usdInRange') {
-        const headerPost = pageData.sourcePostRows.length > 0 ? pageData.sourcePostRows[0] : {};
-        const colLabelPost = findColumnName(headerPost, COLUMN_CONFIG.LABEL);
-        const inRangePostLabels = new Set(pageData.sourcePostRows.map(row => row[colLabelPost]));
+        // FIX #2 here too: find columns over whole arrays
+        const colLabelPost   = findColumnName(pageData.sourcePostRows,    COLUMN_CONFIG.LABEL);
+        const colLabelRev    = findColumnName(pageData.sourceRevenueRows, COLUMN_CONFIG.LABEL);
 
-        const headerRevenue = pageData.sourceRevenueRows.length > 0 ? pageData.sourceRevenueRows[0] : {};
-        const colLabelRevenue = findColumnName(headerRevenue, COLUMN_CONFIG.LABEL);
-
-        sourceRows = pageData.sourceRevenueRows.filter(row => inRangePostLabels.has(row[colLabelRevenue]));
+        const inRangePostLabels = new Set(
+            pageData.sourcePostRows.map(row => row[colLabelPost])
+        );
+        sourceRows = pageData.sourceRevenueRows.filter(row => inRangePostLabels.has(row[colLabelRev]));
         
         const startDate = document.getElementById('report-start-date').value;
         const endDate = document.getElementById('report-end-date').value;
@@ -693,7 +724,6 @@ function showDataDetails(e) {
         const rangeHeader = `${startFormatted}-${endFormatted}`;
         metricName = metric === 'viewsInRange' ? `View (${rangeHeader})` : `USD (${rangeHeader})`;
     }
-
 
     const modalTitle = document.getElementById('data-detail-title');
     const modalContent = document.getElementById('data-detail-content');
@@ -706,21 +736,18 @@ function showDataDetails(e) {
         return;
     }
 
-    // Dynamically create headers from the first row of source data
-    const headers = Object.keys(sourceRows[0]);
+    const headers = Object.keys(sourceRows[0] || {});
     let tableHTML = `<table class="min-w-full text-sm whitespace-nowrap"><thead><tr>`;
     headers.forEach(header => {
         tableHTML += `<th>${header}</th>`;
     });
     tableHTML += `</tr></thead><tbody>`;
 
-    // Create table rows
     sourceRows.forEach(row => {
         tableHTML += `<tr>`;
         headers.forEach(header => {
-            // Sanitize cell content to prevent HTML injection
             const cellValue = row[header] === null || row[header] === undefined ? '' : String(row[header]);
-            const sanitizedValue = cellValue.replace(/</g, "<").replace(/>/g, ">");
+            const sanitizedValue = cellValue.replace(/</g, "&lt;").replace(/>/g, "&gt;");
             tableHTML += `<td>${sanitizedValue}</td>`;
         });
         tableHTML += `</tr>`;
@@ -730,6 +757,7 @@ function showDataDetails(e) {
     modalContent.innerHTML = tableHTML;
     openModal('data-detail-modal');
 }
+
 
 // =================================================================
 // ================== BÁO CÁO FACEBOOK (CUSTOM) ====================
@@ -746,7 +774,6 @@ function renderFacebookReportTable() {
     if (!tableBody) return;
 
     tableBody.innerHTML = facebookReportData.map((row, index) => {
-        // If in edit mode, render input fields, otherwise render static text
         if (row.isEditing) {
             return `
                 <tr data-id="${row.id}">
@@ -795,7 +822,7 @@ function addFacebookReportRow() {
         source: '',
         postDate: new Date().toISOString().slice(0, 10), // Default to today
         personnel: '',
-        isEditing: true // Start in editing mode
+        isEditing: true
     };
     facebookReportData.push(newRow);
     renderFacebookReportTable();
@@ -839,7 +866,6 @@ function exportFacebookReportToExcel() {
         alert("Không có dữ liệu để xuất file.");
         return;
     }
-    // Create a clean version of the data for export (without isEditing flag)
     const dataToExport = facebookReportData.map((row, index) => ({
         'STT': index + 1,
         'Page/Cổng đăng': row.page,
@@ -855,7 +881,6 @@ function exportFacebookReportToExcel() {
     XLSX.utils.book_append_sheet(wb, ws, "Báo cáo Facebook");
     XLSX.writeFile(wb, "Bao_cao_Facebook.xlsx");
 }
-
 
 /**
  * Initializes event listeners for the custom Facebook report section.
@@ -877,9 +902,7 @@ function initializeFacebookReport() {
         table.addEventListener('click', handleFacebookTableClick);
     }
     
-    // Initial render
     renderFacebookReportTable();
-
     isFacebookReportInitialized = true;
 }
 
@@ -896,6 +919,5 @@ if (facebookReportContainer) {
             }
         }
     });
-
     fbObserver.observe(facebookReportContainer, { attributes: true });
 }
